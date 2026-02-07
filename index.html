@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Informasi Sasaran Kinerja Pegawai (SI-SKP) Pegawai ASN</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="stepper.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-file-contract"></i> SKP Pegawai ASN
+        </div>
+        <ul class="nav-links">
+            <li><a href="#" class="nav-item active" data-target="home-section">Beranda</a></li>
+            <li><a href="#" class="nav-item" data-target="skp-section">Buat SKP</a></li>
+            <li><a href="#" class="nav-item" data-target="jabatan-section">Daftar Jabatan</a></li>
+            <li><a href="#" class="nav-item" data-target="history-section">Riwayat SKP</a></li>
+            <li><a href="#" class="nav-item" data-target="guide-section">Cara Penggunaan</a></li>
+            <li><a href="#" class="nav-item" data-target="contact-section">Kontak Admin</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <!-- HOME SECTION -->
+        <section id="home-section" class="active-section">
+            <!-- Marquee -->
+            <div class="marquee-container">
+                <div class="marquee-content">
+                    Selamat Datang di Sistem Informasi Sasaran Kinerja Pegawai (SI-SKP) Kabupaten Kepulauan Tanimbar.
+                    Silahkan buat SKP anda dengan mudah dan cepat.
+                </div>
+                <!-- Horizontal Guide Stepper -->
+                <div class="stepper-container">
+                    <div class="stepper-line">
+                        <div class="stepper-progress"></div>
+                    </div>
+                    <div class="stepper-steps">
+                        <div class="step" onclick="document.querySelector('[data-target=\'jabatan-section\']').click()">
+                            <div class="step-circle">1</div>
+                            <div class="step-content">
+                                <h4>Tahap 1</h4>
+                                <p>Periksa Jabatan di Menu Daftar Jabatan</p>
+                            </div>
+                            <i class="fas fa-id-card step-icon"></i>
+                        </div>
+                        <div class="step" onclick="document.querySelector('[data-target=\'skp-section\']').click()">
+                            <div class="step-circle">2</div>
+                            <div class="step-content">
+                                <h4>Tahap 2</h4>
+                                <p>Buat SKP (Data & RHK)</p>
+                            </div>
+                            <i class="fas fa-file-signature step-icon"></i>
+                        </div>
+                        <div class="step" onclick="document.querySelector('[data-target=\'history-section\']').click()">
+                            <div class="step-circle">3</div>
+                            <div class="step-content">
+                                <h4>Tahap 3</h4>
+                                <p>Cek Riwayat SKP</p>
+                            </div>
+                            <i class="fas fa-history step-icon"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero">
+                    <div class="hero-content"
+                        style="display: flex; align-items: center; justify-content: center; gap: 30px; flex-wrap: wrap;">
+                        <div class="hero-text" style="flex: 1; min-width: 300px;">
+                            <h1 class="rainbow-text" style="font-size: 2.5rem; margin-bottom: 20px;">Selamat Datang di
+                                Aplikasi SKP</h1>
+                            <p>Buat Sasaran Kinerja Pegawai (SKP) anda dengan mudah, cepat, dan sesuai standar.</p>
+                            <button class="btn-primary"
+                                onclick="document.querySelector('[data-target=\'skp-section\']').click()">Mulai Buat
+                                SKP</button>
+                            <div
+                                style="margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.7); border-radius: 12px; border-left: 5px solid var(--primary-color); text-align: left; font-style: italic; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 100%; width: 100%;">
+                                <p
+                                    style="color: #475569; line-height: 1.6; margin: 0; white-space: normal; overflow-wrap: break-word;">
+                                    <strong style="color: var(--primary-color);">Catatan :</strong> SKP ini berfungsi
+                                    sebagai panduan bagi Anda dalam menyusun SKP sesuai dengan Jabatan dan
+                                    <strong>RHK</strong> Atasan Anda. Jika terdapat kekeliruan, Anda dapat melakukan
+                                    penyesuaian secara manual. Semoga aplikasi ini dapat membantu Anda, terima kasih.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="hero-logo" style="display: none;"> <!-- Hidden by default until logo uploaded -->
+                            <img id="appLogo" src="" alt="Logo App">
+                        </div>
+                    </div>
+                </div>
+                <div class="features">
+                    <div class="feature-card-rainbow" style="box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div class="feature-card-content">
+                            <i class="fas fa-bolt" style="font-size: 2rem; color: #f59e0b; margin-bottom: 10px;"></i>
+                            <h3>Cepat & Otomatis</h3>
+                            <p>Generate tabel SKP lengkap hanya dengan input RHK Atasan.</p>
+                        </div>
+                    </div>
+                    <div class="feature-card-rainbow" style="box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div class="feature-card-content">
+                            <i class="fas fa-save" style="font-size: 2rem; color: #3b82f6; margin-bottom: 10px;"></i>
+                            <h3>Simpan Riwayat</h3>
+                            <p>Simpan data SKP anda dan edit kembali kapan saja.</p>
+                        </div>
+                    </div>
+                    <div class="feature-card-rainbow" style="box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div class="feature-card-content">
+                            <i class="fas fa-print" style="font-size: 2rem; color: #10b981; margin-bottom: 10px;"></i>
+                            <h3>Cetak PDF</h3>
+                            <p>Siap cetak format PDF untuk kebutuhan administrasi.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>
+
+        <!-- SKP GENERATOR SECTION -->
+        <section id="skp-section" style="display: none;">
+            <header>
+                <h1>Buat SKP</h1>
+                <p>Isi data pegawai dan RHK untuk menghasilkan tabel.</p>
+            </header>
+
+            <div class="input-section">
+                <!-- AI AUTO-SUGGEST TOP PANEL -->
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; background: #fdf4ff; padding: 15px; border-radius: 12px; border: 1px solid #f5d0fe; box-shadow: 0 4px 12px rgba(126, 34, 206, 0.08);">
+                        <p style="font-size: 0.85rem; color: #701a75; margin: 0; font-style: italic; font-weight: 600;">
+                            <i class="fas fa-magic"></i> &nbsp; Gunakan tombol ini untuk mendapatkan saran RHK Atasan
+                            yang linier sesuai standar Menpan.
+                        </p>
+                        <button id="suggestBtn" class="btn-sm"
+                            style="background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); color:#7e22ce; border:1px solid #d8b4fe; border-radius: 8px; padding: 10px 20px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 6px rgba(126, 34, 206, 0.15); transition: all 0.3s ease;">
+                            <i class="fas fa-robot"></i> AI Auto-Suggest (Linear Menpan)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Data Pegawai -->
+                <div class="section-title">Data Pegawai</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="namaLengkap">Nama Lengkap</label>
+                        <input type="text" id="namaLengkap" placeholder="Contoh: Budi Santoso, S.Kom">
+                    </div>
+                    <div class="form-group">
+                        <label for="nip">NIP</label>
+                        <input type="text" id="nip" placeholder="Masukkan NIP...">
+                    </div>
+                    <div class="form-group">
+                        <label for="jabatan">Jabatan</label>
+                        <!-- Changed to Select + Datalist or just Select for stricter control? User asked for "pilihan". -->
+                        <!-- Let's use a datalist so they can still type custom ones, or a select if they want strict list. -->
+                        <!-- "maka akan anda tampilkan pilihan pada jabatan" implies a dropdown. -->
+                        <select id="jabatanSelector" style="width: 100%;">
+                            <option value="">-- Pilih Jabatan --</option>
+                            <option value="Penata Layanan Operasional">Penata Layanan Operasional</option>
+                        </select>
+                        <!-- Hidden input to store value if needed, or just use selector value -->
+                    </div>
+                    <div class="form-group">
+                        <label for="opd">Unit Kerja</label>
+                        <input type="text" id="opd" placeholder="Contoh: Dinas Komunikasi dan Informatika">
+                    </div>
+                </div>
+
+                <!-- Periode SKP -->
+                <div class="section-title mt-4">Periode SKP</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="periodeTahun">Tahun Periode</label>
+                        <select id="periodeTahun"
+                            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Data Kinerja -->
+                <div class="section-title mt-4">Data RHK Atasan</div>
+                <div class="form-group">
+                    <label for="levelAtasanSelector">Level Jabatan Atasan</label>
+                    <select id="levelAtasanSelector"
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #fff;">
+                        <option value="">-- Pilih Level Jabatan Atasan --</option>
+                        <option value="Gubernur">Gubernur</option>
+                        <option value="Wakil Gubernur">Wakil Gubernur</option>
+                        <option value="Bupati">Bupati</option>
+                        <option value="Wakil Bupati">Wakil Bupati</option>
+                        <option value="Wali Kota">Wali Kota</option>
+                        <option value="Wakil Wali Kota">Wakil Wali Kota</option>
+                        <option value="Sekda">Sekda (Sekretaris Daerah)</option>
+                        <option value="Asisten Pemerintahan & Kesra (Asisten I)">Asisten Pemerintahan & Kesra (Asisten
+                            I)</option>
+                        <option value="Asisten Perekonomian & Pembangunan (Asisten II)">Asisten Perekonomian &
+                            Pembangunan (Asisten II)</option>
+                        <option value="Asisten Administrasi Umum (Asisten III)">Asisten Administrasi Umum (Asisten III)
+                        </option>
+                        <option value="Kepala Dinas">Kepala Dinas</option>
+                        <option value="Kepala Badan">Kepala Badan</option>
+                        <option value="Kepala Bagian">Kepala Bagian</option>
+                        <option value="Sekretaris">Sekretaris (Dinas/Badan)</option>
+                        <option value="Kepala Bidang">Kepala Bidang</option>
+                        <option value="Camat">Camat</option>
+                        <option value="Lurah">Lurah</option>
+                        <option value="Kasubag">Kasubag</option>
+                        <option value="Kepala Seksi">Kepala Seksi</option>
+                        <option value="Koordinator Wilayah">Koordinator Wilayah</option>
+                        <option value="Kepala Sekolah">Kepala Sekolah</option>
+                        <option value="Direktur Rumah Sakit">Direktur Rumah Sakit</option>
+                        <option value="Wakil Direktur Rumah Sakit">Wakil Direktur Rumah Sakit</option>
+                        <option value="Kepala Bidang Rumah Sakit">Kepala Bidang Rumah Sakit</option>
+                        <option value="Kepala Bagian Rumah Sakit">Kepala Bagian Rumah Sakit</option>
+                        <option value="Kepala Seksi Rumah Sakit">Kepala Seksi Rumah Sakit</option>
+                        <option value="Kepala Subbagian Rumah Sakit">Kepala Subbagian Rumah Sakit</option>
+                        <option value="Kepala Instalasi Rumah Sakit">Kepala Instalasi Rumah Sakit</option>
+                        <option value="Kepala Ruangan Rumah Sakit">Kepala Ruangan Rumah Sakit</option>
+                        <option value="Komite Medik">Komite Medik</option>
+                        <option value="Jabatan Fungsional">Jabatan Fungsional (Ahli Utama/Madya)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rhkAtasan">RHK Atasan yang Diintervensi</label>
+                    <textarea id="rhkAtasan" rows="3" placeholder="Masukkan Kalimat RHK Atasan..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="indikatorAtasan">Indikator Kinerja Atasan</label>
+                    <textarea id="indikatorAtasan" rows="2"
+                        placeholder="Masukkan Indikator Kinerja Atasan..."></textarea>
+                </div>
+
+                <!-- ADDED RHK LIST -->
+                <div id="addedRhkContainer"
+                    style="display:none; margin: 15px 0; padding: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+                    <h4
+                        style="margin-bottom: 10px; color: #166534; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-list-check"></i> RHK Atasan yang Sudah Ditambahkan:
+                    </h4>
+                    <ul id="miniRhkList" style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Items here -->
+                    </ul>
+                </div>
+
+
+                <div class="action-buttons">
+                    <button id="generateBtn" class="btn-primary"><i class="fas fa-plus-circle"></i> Tambah RHK ke
+                        Tabel</button>
+                    <button id="saveBtn" class="btn-success"><i class="fas fa-save"></i> Simpan Data</button>
+                    <button id="printBtn" class="btn-info"><i class="fas fa-print"></i> Download PDF / Print</button>
+                    <button id="clearBtn" class="btn-danger"><i class="fas fa-trash"></i> Reset Form</button>
+                </div>
+            </div>
+
+            <div class="input-section" id="edit-notice"
+                style="display:none; background-color: #fffbeb; border: 1px solid #fcd34d;">
+                <p style="color: #b45309;"><i class="fas fa-info-circle"></i> Anda sedang dalam mode edit. Klik
+                    "Generate SKP" untuk memperbarui tampilan tabel, lalu "Simpan Data" untuk menyimpan perubahan.</p>
+            </div>
+
+            <!-- TABEL SKP -->
+            <div id="printableArea">
+                <div class="print-header" style="display:none; margin-bottom: 20px;">
+                    <h3 style="text-align: center;">SASARAN KINERJA PEGAWAI</h3>
+                    <table class="info-table" style="width: 100%; border: none; margin-bottom: 10px;">
+                        <tr>
+                            <td style="width: 150px; border:none;">Nama</td>
+                            <td style="border:none;">: <span id="printNama"></span></td>
+                        </tr>
+                        <tr>
+                            <td style="width: 150px; border:none;">NIP</td>
+                            <td style="border:none;">: <span id="printNip"></span></td>
+                        </tr>
+                        <tr>
+                            <td style="width: 150px; border:none;">Jabatan</td>
+                            <td style="border:none;">: <span id="printJabatan"></span></td>
+                        </tr>
+                        <tr>
+                            <td style="width: 150px; border:none;">Unit Kerja</td>
+                            <td style="border:none;">: <span id="printOpd"></span></td>
+                        </tr>
+                        <tr>
+                            <td style="width: 150px; border:none;">Periode</td>
+                            <td style="border:none;">: <span id="printPeriode"></span></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Zoom Control for Main Table -->
+                <div class="zoom-controls no-print"
+                    style="margin-bottom: 15px; display: flex; align-items: center; gap: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
+                    <label for="mainZoomRange"
+                        style="font-size: 0.9rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 5px;">
+                        <i class="fas fa-search"></i> Zoom:
+                    </label>
+                    <input type="range" id="mainZoomRange" min="50" max="150" value="100"
+                        style="cursor: pointer; width: 120px;">
+                    <span id="mainZoomValue"
+                        style="font-size: 0.9rem; font-weight: 700; color: var(--primary-color); min-width: 45px;">100%</span>
+                    <button id="resetMainZoom" class="btn-sm"
+                        style="background: white; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">Reset</button>
+                </div>
+
+                <div class="table-container">
+                    <table id="skpTable">
+                        <thead>
+                            <tr>
+                                <th rowspan="3" class="header-no">NO</th>
+                                <th colspan="4" class="header-atasan-main">RHK ATASAN YANG DI INTERVENSI</th>
+                                <th colspan="14" class="header-bawahan-main">RHK BAWAHAN (<span
+                                        id="jabatanTitle">JABATAN PENATA LAYANAN OPERASIONAL</span>)</th>
+                            </tr>
+                            <tr>
+                                <!-- Atasan Cols (Rowspan 2 to match depth) -->
+                                <th rowspan="2" class="header-atasan-sub">LEVEL JABATAN</th>
+                                <th rowspan="2" class="header-atasan-sub">RHK</th>
+                                <th rowspan="2" class="header-atasan-sub">INDIKATOR KINERJA</th>
+                                <th rowspan="2" class="header-atasan-sub">BENTUK INTERVENSI KE BAWAHAN</th>
+
+                                <!-- Bawahan Basic Cols (Rowspan 2) -->
+                                <th rowspan="2" class="header-bawahan-sub">LEVEL JABATAN</th>
+                                <th rowspan="2" class="header-bawahan-sub">RHK</th>
+                                <th rowspan="2" class="header-bawahan-sub">ASPEK</th>
+                                <th rowspan="2" class="header-bawahan-sub">INDIKATOR KINERJA INDIVIDU</th>
+                                <th rowspan="2" class="header-bawahan-sub">TARGET TAHUNAN</th>
+
+                                <!-- Groups pushed down -->
+                                <th colspan="2" class="header-green-main">RENCANA AKSI</th>
+                                <th colspan="2" class="header-yellow-main">BUKTI DUKUNG</th>
+                                <th colspan="2" class="header-blue-main">REALISASI</th>
+                                <th colspan="3" class="header-lampiran-main">LAMPIRAN</th>
+                            </tr>
+                            <tr>
+                                <th class="header-green-sub">RENCANA AKSI</th>
+                                <th class="header-green-sub">TARGET</th>
+                                <th class="header-yellow-sub">NAMA BUKTI DUKUNG</th>
+                                <th class="header-yellow-sub">LINK BUKTI</th>
+                                <th class="header-blue-sub">REALISASI</th>
+                                <th class="header-blue-sub">SUMBER DATA</th>
+                                <th class="header-lampiran-sub">DUKUNGAN SUMBER DAYA</th>
+                                <th class="header-lampiran-sub">SKEMA PERTANGGUNGJAWABAN</th>
+                                <th class="header-lampiran-sub">KONSEKUENSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Generated Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- JABATAN SECTION -->
+        <section id="jabatan-section" style="display: none;">
+            <header>
+                <h1>Daftar Jabatan</h1>
+                <p>Tambah, edit, atau hapus daftar jabatan yang tersedia di form SKP.</p>
+            </header>
+
+            <div class="input-section">
+                <div class="form-group" style="flex-direction: row; gap: 10px; align-items: flex-end;">
+                    <div style="flex-grow: 1;">
+                        <label for="newJabatan">Tambah Jabatan Baru</label>
+                        <input type="text" id="newJabatan" placeholder="Masukkan nama jabatan...">
+                    </div>
+                    <button id="addJabatanBtn" class="btn-success"><i class="fas fa-plus"></i> Tambah</button>
+                </div>
+            </div>
+
+            <div class="card bg-white p-6">
+                <h3>Daftar Jabatan Tersimpan</h3>
+                <ul id="jabatanList" style="list-style: none; margin-top: 1rem;">
+                    <!-- Populated by JS -->
+                    <li style="padding: 10px; border-bottom: 1px solid #eee; color: gray;">Memuat daftar...</li>
+                </ul>
+            </div>
+
+            <!-- Management for Level Atasan -->
+            <div class="input-section mt-6">
+                <div class="form-group" style="flex-direction: row; gap: 10px; align-items: flex-end;">
+                    <div style="flex-grow: 1;">
+                        <label for="newLevel">Tambah Level Jabatan Atasan Baru</label>
+                        <input type="text" id="newLevel" placeholder="Contoh: Kepala Puskesmas...">
+                    </div>
+                    <button id="addLevelBtn" class="btn-success"><i class="fas fa-plus"></i> Tambah</button>
+                </div>
+            </div>
+
+            <div class="card bg-white p-6">
+                <h3>Daftar Level Jabatan Atasan Tersimpan</h3>
+                <ul id="levelList" style="list-style: none; margin-top: 1rem;">
+                    <!-- Populated by JS -->
+                    <li style="padding: 10px; border-bottom: 1px solid #eee; color: gray;">Memuat daftar...</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- HISTORY SECTION -->
+        <section id="history-section" style="display: none;">
+            <header>
+                <h1>Riwayat SKP Anda</h1>
+                <p>Daftar SKP yang telah anda buat dan simpan.</p>
+            </header>
+
+            <!-- Filter Controls -->
+            <div class="filter-controls"
+                style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select id="filterYear" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+                    <option value="all">Semua Tahun</option>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                </select>
+                <select id="filterSort" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+                    <option value="newest">Terbaru</option>
+                    <option value="oldest">Terlama</option>
+                    <option value="az">A-Z (Nama)</option>
+                    <option value="za">Z-A (Nama)</option>
+                </select>
+                <input type="text" id="searchHistory" placeholder="Cari Nama / NIP..."
+                    style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; flex: 1;">
+            </div>
+
+            <!-- Folder View Container -->
+            <div id="historyFolders" class="folder-grid"></div>
+
+            <div id="historyList" class="card-grid" style="margin-top: 20px;">
+                <!-- Populate with JS -->
+            </div>
+        </section>
+
+        <!-- GUIDE SECTION -->
+        <section id="guide-section" style="display: none;">
+            <header>
+                <h1>Cara Penggunaan</h1>
+            </header>
+            <div class="card bg-white p-6">
+                <ol style="line-height: 2; margin-left: 20px;">
+                    <li>Buka menu <strong>Buat SKP</strong>.</li>
+                    <li>Isi <strong>Data Pegawai</strong> (Nama, NIP, Jabatan, OPD).</li>
+                    <li>Isi <strong>RHK Atasan</strong> dan <strong>Indikator Kinerja Atasan</strong>.</li>
+                    <li>Klik tombol <strong>Generate SKP</strong> untuk melihat pratinjau tabel.</li>
+                    <li>Jika sudah sesuai, klik <strong>Simpan Data</strong> untuk menyimpannya ke menu Riwayat.</li>
+                    <li>Klik <strong>Download PDF / Print</strong> untuk mencetak atau menyimpan sebagai PDF.</li>
+                    <li>Untuk mengedit, buka menu <strong>Riwayat SKP</strong> dan klik tombol Edit pada item yang
+                        diinginkan.</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- CONTACT SECTION -->
+        <section id="contact-section" style="display: none;">
+            <header>
+                <h1>Kontak Admin</h1>
+            </header>
+            <div class="card bg-white p-6" style="text-align: center;">
+                <p>Jika terdapat kendala atau pertanyaan seputar aplikasi ini, silakan hubungi admin:</p>
+                <div style="margin-top: 20px;">
+                    <p><i class="fas fa-envelope"></i> Email: admin@skp-andreasnusatjasi</p>
+                    <p><i class="fab fa-whatsapp"></i> WhatsApp: 0853-4957-7060</p>
+                </div>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                    <h3>Upload Logo Aplikasi</h3>
+                    <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;">Upload logo untuk ditampilkan di
+                        halaman beranda.</p>
+                    <input type="file" id="logoUpload" accept="image/*" style="display: none;">
+                    <button onclick="document.getElementById('logoUpload').click()" class="btn-secondary">
+                        <i class="fas fa-upload"></i> Pilih Logo
+                    </button>
+                    <div id="logoPreviewName" style="margin-top: 10px; font-size: 0.8rem; color: #059669;"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer
+        style="text-align: center; padding: 20px; background-color: #f1f5f9; color: #64748b; font-size: 0.9rem; margin-top: 40px;">
+        &copy; 2026 Andreas Nusatjasi. All rights reserved.
+    </footer>
+
+    <!-- VIEW SKP MODAL (Wide for Table) -->
+    <div id="viewModal" class="modal-overlay">
+        <div class="modal-content modal-wide" style="width: 1300px; max-width: 95%;">
+            <div class="modal-header">
+                <h2>Detail SKP</h2>
+                <button class="close-modal" id="closeViewModal">&times;</button>
+            </div>
+            <div class="modal-body" id="viewModalContent">
+                <!-- Content will be injected here for printing -->
+                <div id="viewHeaderDetails"
+                    style="margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc; padding: 15px; border-radius: 8px;">
+                    <!-- JS populated -->
+                </div>
+                <!-- Zoom Controls -->
+                <div
+                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: #f1f5f9; border-radius: 5px;">
+                    <i class="fas fa-search-minus"></i>
+                    <input type="range" id="zoomRange" min="50" max="150" value="100" style="flex:1; cursor: pointer;">
+                    <i class="fas fa-search-plus"></i>
+                    <span id="zoomValue" style="min-width: 50px; text-align: center; font-weight: bold;">100%</span>
+                </div>
+                <div class="table-container" style="border:1px solid #000; overflow: auto;">
+                    <table id="viewTablePreview" class="w-full">
+                        <thead>
+                            <tr>
+                                <th rowspan="3" class="header-no">NO</th>
+                                <th colspan="4" class="header-atasan-main">RHK ATASAN YANG DI INTERVENSI</th>
+                                <th colspan="14" class="header-bawahan-main">RHK BAWAHAN</th>
+                            </tr>
+                            <tr>
+                                <!-- Atasan Cols -->
+                                <th rowspan="2" class="header-atasan-sub">LEVEL JABATAN</th>
+                                <th rowspan="2" class="header-atasan-sub">RHK</th>
+                                <th rowspan="2" class="header-atasan-sub">INDIKATOR KINERJA</th>
+                                <th rowspan="2" class="header-atasan-sub">BENTUK INTERVENSI KE BAWAHAN</th>
+
+                                <!-- Bawahan Basic Cols -->
+                                <th rowspan="2" class="header-bawahan-sub">LEVEL JABATAN</th>
+                                <th rowspan="2" class="header-bawahan-sub">RHK</th>
+                                <th rowspan="2" class="header-bawahan-sub">ASPEK</th>
+                                <th rowspan="2" class="header-bawahan-sub">INDIKATOR KINERJA INDIVIDU</th>
+                                <th rowspan="2" class="header-bawahan-sub">TARGET TAHUNAN</th>
+
+                                <!-- Groups -->
+                                <th colspan="2" class="header-green-main">RENCANA AKSI</th>
+                                <th colspan="2" class="header-yellow-main">BUKTI DUKUNG</th>
+                                <th colspan="2" class="header-blue-main">REALISASI</th>
+                                <th colspan="3" class="header-lampiran-main">LAMPIRAN</th>
+                            </tr>
+                            <tr>
+                                <th class="header-green-sub">RENCANA AKSI</th>
+                                <th class="header-green-sub">TARGET</th>
+                                <th class="header-yellow-sub">NAMA BUKTI</th>
+                                <th class="header-yellow-sub">LINK</th>
+                                <th class="header-blue-sub">REALISASI</th>
+                                <th class="header-blue-sub">SUMBER DATA</th>
+                                <th class="header-lampiran-sub">SUMBER DAYA</th>
+                                <th class="header-lampiran-sub">SKEMA</th>
+                                <th class="header-lampiran-sub">KONSEKUENSI</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="closeViewBtn" style="background:#64748b; color:white;">Tutup</button>
+                <button class="btn-primary" id="printViewBtn" style="background:var(--primary-color);"><i
+                        class="fas fa-print"></i> Cetak</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT SKP MODAL (Wide for Table) -->
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h2>Edit Data & Tabel SKP</h2>
+                <button class="close-modal" id="closeEditModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editModalId">
+                <div class="alert-info"
+                    style="background:#e0f2fe; padding:10px; border-radius:5px; margin-bottom:15px; color:#0369a1; font-size:0.9rem;">
+                    <i class="fas fa-info-circle"></i> Edit data pegawai atau RHK di bawah, tabel akan otomatis
+                    diperbarui saat disimpan.
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="editNama">Nama Lengkap</label>
+                        <input type="text" id="editNama">
+                    </div>
+                    <div class="form-group">
+                        <label for="editNip">NIP</label>
+                        <input type="text" id="editNip">
+                    </div>
+                    <div class="form-group">
+                        <label for="editJabatan">Jabatan</label>
+                        <input type="text" id="editJabatan" readonly style="background:#f1f5f9; cursor:not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label for="editOpd">Nama OPD</label>
+                        <input type="text" id="editOpd">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editLevelAtasan">Level Jabatan Atasan</label>
+                    <select id="editLevelAtasan"
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #fff;">
+                        <option value="">-- Pilih Level Jabatan Atasan --</option>
+                        <option value="Gubernur">Gubernur</option>
+                        <option value="Wakil Gubernur">Wakil Gubernur</option>
+                        <option value="Bupati">Bupati</option>
+                        <option value="Wakil Bupati">Wakil Bupati</option>
+                        <option value="Wali Kota">Wali Kota</option>
+                        <option value="Wakil Wali Kota">Wakil Wali Kota</option>
+                        <option value="Sekda">Sekda (Sekretaris Daerah)</option>
+                        <option value="Asisten Pemerintahan & Kesra (Asisten I)">Asisten Pemerintahan & Kesra (Asisten
+                            I)</option>
+                        <option value="Asisten Perekonomian & Pembangunan (Asisten II)">Asisten Perekonomian &
+                            Pembangunan (Asisten II)</option>
+                        <option value="Asisten Administrasi Umum (Asisten III)">Asisten Administrasi Umum (Asisten III)
+                        </option>
+                        <option value="Kepala Dinas">Kepala Dinas</option>
+                        <option value="Kepala Badan">Kepala Badan</option>
+                        <option value="Kepala Bagian">Kepala Bagian</option>
+                        <option value="Sekretaris">Sekretaris (Dinas/Badan)</option>
+                        <option value="Kepala Bidang">Kepala Bidang</option>
+                        <option value="Camat">Camat</option>
+                        <option value="Lurah">Lurah</option>
+                        <option value="Kasubag">Kasubag</option>
+                        <option value="Kepala Seksi">Kepala Seksi</option>
+                        <option value="Koordinator Wilayah">Koordinator Wilayah</option>
+                        <option value="Kepala Sekolah">Kepala Sekolah</option>
+                        <option value="Direktur Rumah Sakit">Direktur Rumah Sakit</option>
+                        <option value="Wakil Direktur Rumah Sakit">Wakil Direktur Rumah Sakit</option>
+                        <option value="Kepala Bidang Rumah Sakit">Kepala Bidang Rumah Sakit</option>
+                        <option value="Kepala Bagian Rumah Sakit">Kepala Bagian Rumah Sakit</option>
+                        <option value="Kepala Seksi Rumah Sakit">Kepala Seksi Rumah Sakit</option>
+                        <option value="Kepala Subbagian Rumah Sakit">Kepala Subbagian Rumah Sakit</option>
+                        <option value="Kepala Instalasi Rumah Sakit">Kepala Instalasi Rumah Sakit</option>
+                        <option value="Kepala Ruangan Rumah Sakit">Kepala Ruangan Rumah Sakit</option>
+                        <option value="Komite Medik">Komite Medik</option>
+                        <option value="Jabatan Fungsional">Jabatan Fungsional (Ahli Utama/Madya)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editRhk">RHK Atasan</label>
+                    <textarea id="editRhk" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editIndikator">Indikator Kinerja Atasan</label>
+                    <textarea id="editIndikator" rows="2"></textarea>
+                </div>
+
+                <!-- ADDED RHK LIST IN EDIT -->
+                <div id="editAddedRhkContainer"
+                    style="margin: 15px 0; padding: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+                    <h4
+                        style="margin-bottom: 10px; color: #166534; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-list-check"></i> Daftar RHK Atasan (Klik Sampah untuk Hapus):
+                    </h4>
+                    <ul id="editMiniRhkList" style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Items here -->
+                    </ul>
+                    <button id="addRhkEditBtn" class="btn-sm"
+                        style="margin-top: 10px; background: var(--primary-color); color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-plus"></i> Tambah RHK ke Daftar Edit
+                    </button>
+                </div>
+
+                <!-- PREVIEW TABLE IN MODAL -->
+                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="font-weight:bold; margin:0;">Preview Tabel SKP (Scroll untuk melihat)</label>
+
+                        <!-- Zoom Control for Edit Modal -->
+                        <div class="zoom-controls no-print"
+                            style="display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 5px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <label for="editZoomRange"
+                                style="font-size: 0.8rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-search"></i> Zoom:
+                            </label>
+                            <input type="range" id="editZoomRange" min="50" max="150" value="80"
+                                style="cursor: pointer; width: 100px;">
+                            <span id="editZoomValue"
+                                style="font-size: 0.8rem; font-weight: 700; color: var(--primary-color); min-width: 35px;">80%</span>
+                            <button id="resetEditZoom"
+                                style="background: white; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; cursor: pointer;">Reset</button>
+                        </div>
+                    </div>
+                    <div class="table-container"
+                        style="max-height: 400px; overflow: auto; background: #fff; border:1px solid #ddd;">
+                        <table id="editTablePreview" style="font-size: 0.8rem;">
+                            <!-- Will be cloned from template -->
+                            <thead>
+                                <tr>
+                                    <th rowspan="3" class="header-no">NO</th>
+                                    <th colspan="4" class="header-atasan-main">RHK ATASAN YANG DI INTERVENSI</th>
+                                    <th colspan="14" class="header-bawahan-main">RHK BAWAHAN</th>
+                                </tr>
+                                <tr>
+                                    <!-- Atasan Cols -->
+                                    <th rowspan="2" class="header-atasan-sub">LEVEL JABATAN</th>
+                                    <th rowspan="2" class="header-atasan-sub">RHK</th>
+                                    <th rowspan="2" class="header-atasan-sub">INDIKATOR KINERJA</th>
+                                    <th rowspan="2" class="header-atasan-sub">BENTUK INTERVENSI KE BAWAHAN</th>
+
+                                    <!-- Bawahan Basic Cols -->
+                                    <th rowspan="2" class="header-bawahan-sub">LEVEL JABATAN</th>
+                                    <th rowspan="2" class="header-bawahan-sub">RHK</th>
+                                    <th rowspan="2" class="header-bawahan-sub">ASPEK</th>
+                                    <th rowspan="2" class="header-bawahan-sub">INDIKATOR KINERJA INDIVIDU</th>
+                                    <th rowspan="2" class="header-bawahan-sub">TARGET TAHUNAN</th>
+
+                                    <!-- Groups -->
+                                    <!-- Groups -->
+                                    <th colspan="2" class="header-green-main">RENCANA AKSI</th>
+                                    <th colspan="2" class="header-yellow-main">BUKTI DUKUNG</th>
+                                    <th colspan="2" class="header-blue-main">REALISASI</th>
+                                    <th colspan="3" class="header-lampiran-main">LAMPIRAN</th>
+                                </tr>
+                                <tr>
+                                    <!-- Sub headers -->
+                                    <th class="header-green-sub">RENCANA AKSI</th>
+                                    <th class="header-green-sub">TARGET</th>
+                                    <th class="header-yellow-sub">NAMA BUKTI</th>
+                                    <th class="header-yellow-sub">LINK</th>
+                                    <th class="header-blue-sub">REALISASI</th>
+                                    <th class="header-blue-sub">SUMBER DATA</th>
+                                    <th class="header-lampiran-sub">SUMBER DAYA</th>
+                                    <th class="header-lampiran-sub">SKEMA</th>
+                                    <th class="header-lampiran-sub">KONSEKUENSI</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelEditBtn" style="background:#64748b; color:white;">Batal</button>
+                <button class="btn-primary" id="saveEditBtn" style="background:var(--success-color);">Simpan
+                    Perubahan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION OVERLAY -->
+    <div id="notification-overlay" class="notification-overlay">
+        <div class="notification-card">
+            <div class="notification-type">
+                <i id="notification-icon" class="fas fa-check-circle notification-icon"></i>
+                <span id="notification-message" class="notification-message">Data Berhasil Disimpan!</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- GUIDE POPUP MODAL -->
+    <div id="guideModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-book-open" style="color: var(--primary-color);"></i> Cara Penggunaan</h2>
+                <button class="close-modal" id="closeGuideModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div
+                    style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color); margin-bottom: 20px;">
+                    <p style="color:#1e293b; font-weight:bold;">Selamat datang! Berikut adalah langkah-langkah untuk
+                        membuat SKP:</p>
+                </div>
+                <ol style="line-height: 1.8; margin-left: 20px; color: #334155; text-align: left;">
+                    <li>Pastikan anda berada di menu <strong>Buat SKP</strong>.</li>
+                    <li>Isi <strong>Data Pegawai</strong> (Nama, NIP, Jabatan, Unit Kerja).</li>
+                    <li>Pilih <strong>Periode Tahun</strong> yang sesuai.</li>
+                    <li>Isi <strong>RHK Atasan</strong> dan <strong>Indikator Kinerja Atasan</strong>.</li>
+                    <li>Klik tombol <span
+                            style="background:var(--primary-color); color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">Generate
+                            SKP</span> untuk melihat hasil tabel.</li>
+                    <li>Jika sudah sesuai, klik <span
+                            style="background:var(--success-color); color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">Simpan
+                            Data</span>.</li>
+                    <li>Untuk mencetak, klik tombol <span
+                            style="background:#0ea5e9; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">Download
+                            PDF / Print</span>.</li>
+                </ol>
+                <div style="margin-top: 20px; text-align: center;">
+                    <button id="btnUnderstand" class="btn-primary" style="width: 100%;">Saya Mengerti</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION OVERLAY -->
+    <div id="loadingOverlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center;">
+        <div class="card"
+            style="padding: 30px; text-align: center; border-radius: 12px; background: white; min-width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div style="margin-bottom: 20px;">
+                <i class="fas fa-circle-notch fa-spin" style="font-size: 3rem; color: var(--primary-color);"></i>
+            </div>
+            <h3 id="loadingTitle" style="margin-bottom: 10px; color: #1e293b; font-size: 1.2rem;">Mohon Tunggu Sebentar
+            </h3>
+            <p id="loadingMsg" style="color: #64748b; font-size: 0.95rem;">Sedang memproses generate SKP...</p>
+            <div id="aiValidationStatus"
+                style="display:none; margin-top:15px; padding:10px; border-radius:8px; background:#f0fdf4; color:#166534; font-size:0.85rem; border:1px solid #bbf7d0;">
+                <i class="fas fa-shield-alt"></i> AI memverifikasi kelinieran dengan RHK Atasan & Menpan...
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+
+</html>
