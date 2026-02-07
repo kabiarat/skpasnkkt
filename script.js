@@ -1,5 +1,10 @@
 import { skpData } from './data.js';
 
+// --- SUPABASE CONFIGURATION ---
+const SUPABASE_URL = 'https://azaiekzidlkpkwvwpjtz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6YWlla3ppZGxrcGt3dndwanR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NjYzMjgsImV4cCI6MjA4NjA0MjMyOH0.o_cG_Uit9ze09ZUGQtL75jAqRGd00XOtX_A_2vZpqp0';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 let currentRhkItems = []; // State for multiple RHKs
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,14 +57,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const logoPreviewName = document.getElementById('logoPreviewName');
         const heroLogoContainer = document.querySelector('.hero-logo');
 
-        // Load saved logo
-        const savedLogo = localStorage.getItem('skp_app_logo');
-        if (savedLogo && appLogo) {
-            appLogo.src = savedLogo;
-            if (heroLogoContainer) heroLogoContainer.style.display = 'block';
+        // Load saved logo from Supabase
+        async function loadAppLogo() {
+            const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'skp_app_logo').single();
+            if (data && appLogo) {
+                appLogo.src = data.value;
+                if (heroLogoContainer) heroLogoContainer.style.display = 'block';
+            }
         }
+        loadAppLogo();
 
-        logoUpload.addEventListener('change', function (e) {
+        logoUpload.addEventListener('change', async function (e) {
             const file = e.target.files[0];
             if (file) {
                 if (file.size > 2 * 1024 * 1024) { // 2MB limit
@@ -68,11 +76,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const reader = new FileReader();
-                reader.onload = function (event) {
+                reader.onload = async function (event) {
                     const dataUrl = event.target.result;
                     try {
-                        localStorage.setItem('skp_app_logo', dataUrl);
-                        // Update UI
+                        const { error } = await supabase.from('app_settings').upsert({ key: 'skp_app_logo', value: dataUrl });
+                        if (error) throw error;
+
                         if (appLogo) {
                             appLogo.src = dataUrl;
                             if (heroLogoContainer) heroLogoContainer.style.display = 'block';
@@ -83,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         showNotification('Logo berhasil diupload!', 'success');
                     } catch (err) {
                         console.error(err);
-                        alert("Gagal menyimpan logo. Kemungkinan ukuran terlalu besar untuk penyimpanan browser.");
+                        alert("Gagal menyimpan logo ke Supabase.");
                     }
                 };
                 reader.readAsDataURL(file);
@@ -157,18 +166,19 @@ document.addEventListener('DOMContentLoaded', () => {
         "Jabatan Fungsional"
     ];
 
-    function loadJabatans() {
-        let savedJabatans = JSON.parse(localStorage.getItem('skp_jabatans') || '[]');
+    async function loadJabatans() {
+        const { data: savedJabatans, error } = await supabase.from('master_jabatans').select('nama');
 
-        // Merge defaults if empty (first run)
-        if (savedJabatans.length === 0) {
-            savedJabatans = defaultJabatans;
-            localStorage.setItem('skp_jabatans', JSON.stringify(savedJabatans));
+        if (error) {
+            console.error("Error loading jabatans:", error);
+            return;
         }
+
+        let jabList = savedJabatans.map(j => j.nama);
 
         // Populate Selector
         jabatanInputs.selector.innerHTML = '<option value="">-- Pilih Jabatan --</option>';
-        savedJabatans.forEach(jab => {
+        jabList.forEach(jab => {
             const option = document.createElement('option');
             option.value = jab;
             option.textContent = jab;
@@ -177,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate List in Manager
         jabatanInputs.list.innerHTML = '';
-        savedJabatans.forEach((jab, index) => {
+        jabList.forEach((jab, index) => {
             const li = document.createElement('li');
             li.style.padding = '10px';
             li.style.borderBottom = '1px solid #eee';
@@ -187,27 +197,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             li.innerHTML = `
                 <span>${jab}</span>
-                <button class="btn-danger btn-sm" onclick="deleteJabatan(${index})" style="padding: 5px 10px; font-size: 0.8rem;">Hapus</button>
+                <button class="btn-danger btn-sm" onclick="deleteJabatan('${jab}')" style="padding: 5px 10px; font-size: 0.8rem;">Hapus</button>
             `;
             jabatanInputs.list.appendChild(li);
         });
     }
 
-    function loadLevels() {
-        let savedLevels = JSON.parse(localStorage.getItem('skp_levels') || '[]');
+    async function loadLevels() {
+        const { data: savedLevels, error } = await supabase.from('master_levels').select('nama');
 
-        // Merge defaults if empty
-        if (savedLevels.length === 0) {
-            savedLevels = defaultLevels;
-            localStorage.setItem('skp_levels', JSON.stringify(savedLevels));
+        if (error) {
+            console.error("Error loading levels:", error);
+            return;
         }
+
+        let lvlList = savedLevels.map(l => l.nama);
 
         // Populate Selectors (Both Main and Edit Modal)
         const selectors = [levelInputs.selector, levelInputs.editSelector];
         selectors.forEach(sel => {
             if (!sel) return;
             sel.innerHTML = '<option value="">-- Pilih Level Jabatan Atasan --</option>';
-            savedLevels.forEach(lvl => {
+            lvlList.forEach(lvl => {
                 const option = document.createElement('option');
                 option.value = lvl;
                 option.textContent = lvl;
@@ -218,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate List in Manager
         if (levelInputs.list) {
             levelInputs.list.innerHTML = '';
-            savedLevels.forEach((lvl, index) => {
+            lvlList.forEach((lvl, index) => {
                 const li = document.createElement('li');
                 li.style.padding = '10px';
                 li.style.borderBottom = '1px solid #eee';
@@ -228,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 li.innerHTML = `
                     <span>${lvl}</span>
-                    <button class="btn-danger btn-sm" onclick="deleteLevel(${index})" style="padding: 5px 10px; font-size: 0.8rem;">Hapus</button>
+                    <button class="btn-danger btn-sm" onclick="deleteLevel('${lvl}')" style="padding: 5px 10px; font-size: 0.8rem;">Hapus</button>
                 `;
                 levelInputs.list.appendChild(li);
             });
@@ -289,57 +300,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Expose delete function to window
-    window.deleteJabatan = async function (index) {
-        const confirmed = await showConfirm('Hapus Jabatan?', 'Jabatan ini akan dihapus dari daftar.', 'Hapus');
+    window.deleteJabatan = async function (nama) {
+        const confirmed = await showConfirm('Hapus Jabatan?', 'Jabatan ini akan dihapus dari database.', 'Hapus');
         if (confirmed) {
-            let savedJabatans = JSON.parse(localStorage.getItem('skp_jabatans') || '[]');
-            savedJabatans.splice(index, 1);
-            localStorage.setItem('skp_jabatans', JSON.stringify(savedJabatans));
-            loadJabatans();
-            showNotification('Jabatan berhasil dihapus!', 'success');
+            const { error } = await supabase.from('master_jabatans').delete().eq('nama', nama);
+            if (!error) {
+                loadJabatans();
+                showNotification('Jabatan berhasil dihapus!', 'success');
+            } else {
+                alert("Gagal menghapus jabatan dari Supabase.");
+            }
         }
     };
 
-    window.deleteLevel = async function (index) {
-        const confirmed = await showConfirm('Hapus Level Atasan?', 'Level ini akan dihapus dari daftar.', 'Hapus');
+    window.deleteLevel = async function (nama) {
+        const confirmed = await showConfirm('Hapus Level Atasan?', 'Level ini akan dihapus dari database.', 'Hapus');
         if (confirmed) {
-            let savedLevels = JSON.parse(localStorage.getItem('skp_levels') || '[]');
-            savedLevels.splice(index, 1);
-            localStorage.setItem('skp_levels', JSON.stringify(savedLevels));
-            loadLevels();
-            showNotification('Level Atasan berhasil dihapus!', 'success');
+            const { error } = await supabase.from('master_levels').delete().eq('nama', nama);
+            if (!error) {
+                loadLevels();
+                showNotification('Level Atasan berhasil dihapus!', 'success');
+            } else {
+                alert("Gagal menghapus level dari Supabase.");
+            }
         }
     };
 
-    jabatanInputs.addBtn.addEventListener('click', () => {
+    jabatanInputs.addBtn.addEventListener('click', async () => {
         const newVal = jabatanInputs.newInput.value.trim();
         if (newVal) {
-            let savedJabatans = JSON.parse(localStorage.getItem('skp_jabatans') || '[]');
-            if (!savedJabatans.includes(newVal)) {
-                savedJabatans.push(newVal);
-                localStorage.setItem('skp_jabatans', JSON.stringify(savedJabatans));
+            const { error } = await supabase.from('master_jabatans').insert({ nama: newVal });
+            if (!error) {
                 jabatanInputs.newInput.value = '';
                 loadJabatans();
                 showNotification('Jabatan berhasil ditambahkan!', 'success');
             } else {
-                showNotification('Jabatan sudah ada!', 'error');
+                showNotification('Gagal menambahkan jabatan atau jabatan sudah ada.', 'error');
             }
         }
     });
 
     if (levelInputs.addBtn) {
-        levelInputs.addBtn.addEventListener('click', () => {
+        levelInputs.addBtn.addEventListener('click', async () => {
             const newVal = levelInputs.newInput.value.trim();
             if (newVal) {
-                let savedLevels = JSON.parse(localStorage.getItem('skp_levels') || '[]');
-                if (!savedLevels.includes(newVal)) {
-                    savedLevels.push(newVal);
-                    localStorage.setItem('skp_levels', JSON.stringify(savedLevels));
+                const { error } = await supabase.from('master_levels').insert({ nama: newVal });
+                if (!error) {
                     levelInputs.newInput.value = '';
                     loadLevels();
                     showNotification('Level Atasan berhasil ditambahkan!', 'success');
                 } else {
-                    showNotification('Level ini sudah ada!', 'error');
+                    showNotification('Gagal menambahkan level atau level sudah ada.', 'error');
                 }
             }
         });
@@ -558,63 +569,42 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // SIMPAN (SAVE) BUTTON
-    buttons.save.addEventListener('click', () => {
+    buttons.save.addEventListener('click', async () => {
         const data = {
-            id: currentEditId || Date.now().toString(), // Use existing ID if editing
-            timestamp: new Date().toISOString(),
-            rhkItems: [...currentRhkItems],
+            rhk_items: [...currentRhkItems],
             pegawai: {
                 nama: inputs.nama.value,
                 nip: inputs.nip.value,
                 jabatan: inputs.jabatan.value,
                 opd: inputs.opd.value
             },
-            periode: document.getElementById('periodeTahun').value || new Date().getFullYear().toString()
+            periode: document.getElementById('periodeTahun').value || new Date().getFullYear().toString(),
+            timestamp_iso: new Date().toISOString()
         };
 
-        // --- DUPLICATE CHECK LOGIC ---
-        let history = JSON.parse(localStorage.getItem('skp_history') || '[]');
-
-        const isDuplicate = history.some(item =>
-            item.id !== currentEditId &&
-            item.pegawai.nip === data.pegawai.nip &&
-            item.periode === data.periode &&
-            JSON.stringify(item.rhkItems) === JSON.stringify(data.rhkItems) // Compare rhkItems array
-        );
-
-        if (isDuplicate) {
-            showNotification('Gagal Simpan: Data SKP serupa sudah ada dalam riwayat untuk periode ini.', 'error');
+        if (data.rhk_items.length === 0) {
+            showNotification("Tidak ada data untuk disimpan. Tambahkan RHK terlebih dahulu!", 'error');
             return;
         }
 
-        // Validate minimal
-        if (!data.rhkItems || data.rhkItems.length === 0) {
-            showNotification("Tidak ada data untuk disimpan.", 'error');
-            return;
+        try {
+            if (currentEditId) {
+                const { error } = await supabase.from('skp_history').update(data).eq('id', currentEditId);
+                if (error) throw error;
+                showNotification('Data SKP Berhasil Diperbarui di Supabase!', 'success');
+            } else {
+                const { error } = await supabase.from('skp_history').insert(data);
+                if (error) throw error;
+                showNotification('Data SKP Berhasil Disimpan ke Supabase!', 'success');
+            }
+
+            loadHistory();
+            currentEditId = null;
+            if (editNotice) editNotice.style.display = 'none';
+        } catch (err) {
+            console.error(err);
+            alert("Gagal menyimpan data ke Supabase: " + err.message);
         }
-
-        if (currentEditId) {
-            // Update existing
-            const index = history.findIndex(item => item.id === currentEditId);
-            if (index !== -1) history[index] = data;
-        } else {
-            // Add new
-            history.unshift(data);
-        }
-
-        localStorage.setItem('skp_history', JSON.stringify(history));
-
-        showNotification('Data berhasil disimpan ke Riwayat SKP!', 'success');
-
-        // Refresh History List
-        loadHistory();
-
-        // Reset edit mode
-        currentEditId = null;
-        editNotice.style.display = 'none';
-
-        // Clear buttons or form? Usually User wants to keep seeing what they saved.
-        // We leave it as is.
     });
 
     // PRINT BUTTON
@@ -661,58 +651,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- HISTORY FUNCTIONS ---
-    function loadHistory() {
+    async function loadHistory() {
         const historyList = document.getElementById('historyList');
         if (!historyList) return;
-        const history = JSON.parse(localStorage.getItem('skp_history') || '[]');
-        historyList.innerHTML = '';
 
-        if (history.length === 0) {
-            historyList.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: white; border-radius: 10px; color: #64748b;">
-                    <i class="fas fa-folder-open" style="font-size: 3rem; margin-bottom: 10px; opacity: 0.3;"></i>
-                    <p>Belum ada riwayat SKP tersimpan.</p>
-                </div>
-            `;
-            return;
-        }
+        try {
+            const { data: history, error } = await supabase.from('skp_history').select('*').order('created_at', { ascending: false });
 
-        history.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'card bg-white p-4 history-card';
-            card.style.border = '1px solid #e2e8f0';
-            card.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
-                    <div>
-                        <h3 style="color: var(--primary-color); font-size: 1.1rem; font-weight: bold;">${item.pegawai.nama}</h3>
-                        <p style="font-size: 0.85rem; color: #64748b;">NIP: ${item.pegawai.nip}</p>
-                        <p style="font-size: 0.85rem; color: #64748b;"><i class="fas fa-calendar-alt"></i> Tahun: ${item.periode}</p>
+            if (error) throw error;
+
+            historyList.innerHTML = '';
+            if (!history || history.length === 0) {
+                historyList.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; background: white; border-radius: 10px; color: #64748b;">Belum ada riwayat SKP tersimpan.</div>`;
+                return;
+            }
+
+            history.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card bg-white p-4 history-card';
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                        <div>
+                            <h3 style="color: var(--primary-color); font-size: 1.1rem; font-weight: bold;">${item.pegawai.nama}</h3>
+                            <p style="font-size: 0.85rem; color: #64748b;">NIP: ${item.pegawai.nip} | Tahun: ${item.periode}</p>
+                        </div>
+                        <span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 5px; font-size: 0.75rem; font-weight: 600;">${item.pegawai.jabatan}</span>
                     </div>
-                    <span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 5px; font-size: 0.75rem; font-weight: 600;">${item.pegawai.jabatan}</span>
-                </div>
-                <div style="border-top: 1px solid #eee; padding-top: 12px; display: flex; gap: 8px; justify-content: flex-end;">
-                    <button class="btn-secondary btn-sm" onclick="viewItem('${item.id}')" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; cursor:pointer;"><i class="fas fa-eye"></i> Lihat</button>
-                    <button class="btn-success btn-sm" onclick="loadItemForEdit('${item.id}')" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; cursor:pointer;"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="btn-danger btn-sm" onclick="deleteItem('${item.id}')" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; cursor:pointer;"><i class="fas fa-trash"></i> Hapus</button>
-                </div>
-            `;
-            historyList.appendChild(card);
-        });
+                    <div style="display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #eee; padding-top: 12px;">
+                        <button class="btn-secondary btn-sm" onclick="viewItem('${item.id}')"><i class="fas fa-eye"></i> Lihat</button>
+                        <button class="btn-success btn-sm" onclick="loadItemForEdit('${item.id}')"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn-danger btn-sm" onclick="deleteItem('${item.id}')"><i class="fas fa-trash"></i> Hapus</button>
+                    </div>
+                `;
+                historyList.appendChild(card);
+            });
+        } catch (err) {
+            console.error("Load History Error:", err);
+        }
     }
 
     // Call initially
     loadHistory();
 
-    // Expose functions to window for onclick handlers
-    // Expose functions to window for onclick handlers
     window.viewItem = function (id) { loadItemForView(id); };
     window.loadItemForEdit = function (id) { loadItemForEdit(id); };
-    // window.deleteItem is handled by the global definition logic? 
-    // No, deleteItem is defined inside DOMContentLoaded scope in Step 549/566.
-    // But I just closed DOMContentLoaded at line 430 in Step 602.
-    // So deleteItem IS local to DOMContentLoaded.
-    // So I MUST expose it here.
-    window.deleteItem = function (id) { deleteItem(id); };
+    window.deleteItem = async function (id) {
+        const confirmed = await showConfirm('Hapus Riwayat?', 'SKP ini akan dihapus permanen dari Supabase.', 'Hapus');
+        if (confirmed) {
+            const { error } = await supabase.from('skp_history').delete().eq('id', id);
+            if (!error) {
+                loadHistory();
+                showNotification('Riwayat berhasil dihapus!', 'success');
+            } else {
+                alert("Gagal menghapus riwayat dari Supabase.");
+            }
+        }
+    };
 
     // Also loadHistory needs to be exposed? 
     // loadHistory is defined at window.loadHistory in Step 549. So it is global.
@@ -729,9 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
         printBtn: document.getElementById('printViewBtn')
     };
 
-    function loadItemForView(id) {
-        const history = JSON.parse(localStorage.getItem('skp_history') || '[]');
-        const item = history.find(d => d.id === id);
+    async function loadItemForView(id) {
+        const { data: item, error } = await supabase.from('skp_history').select('*').eq('id', id).single();
 
         if (item) {
             // Populate Header Details
@@ -749,15 +742,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Populate Table
             if (item.custom_table_html) {
                 viewModal.tableBody.innerHTML = item.custom_table_html;
-                // Make sure we DISABLE contentEditable for View Mode
                 viewModal.tableBody.querySelectorAll('[contenteditable]').forEach(el => {
                     el.contentEditable = false;
                     el.style.cursor = 'default';
-                    el.classList.remove('editable-cell');
                 });
             } else {
-                // Generate Fresh
-                generateViewTable(item.pegawai.jabatan, item.rhkItems || []);
+                generateViewTable(item.pegawai.jabatan, item.rhk_items || []);
             }
 
             viewModal.overlay.classList.add('active');
@@ -1108,83 +1098,58 @@ document.addEventListener('DOMContentLoaded', () => {
         generateEditTable(editModal.jabatan.value, currentRhkItems);
     };
 
-    editModal.saveBtn.addEventListener('click', () => {
+    editModal.saveBtn.addEventListener('click', async () => {
         const id = editModal.idInput.value;
-        const history = JSON.parse(localStorage.getItem('skp_history') || '[]');
-        const index = history.findIndex(item => item.id === id);
+        const data = {
+            pegawai: {
+                nama: editModal.nama.value,
+                nip: editModal.nip.value,
+                jabatan: editModal.jabatan.value,
+                opd: editModal.opd.value
+            },
+            rhk_items: [...currentRhkItems],
+            custom_table_html: editModal.tableBody.innerHTML
+        };
 
-        if (index !== -1) {
-            // Update Data
-            history[index].pegawai.nama = editModal.nama.value;
-            history[index].pegawai.nip = editModal.nip.value;
-            // history[index].pegawai.jabatan is readonly in modal
-            history[index].pegawai.opd = editModal.opd.value;
-            history[index].rhkItems = [...currentRhkItems];
+        const { error } = await supabase.from('skp_history').update(data).eq('id', id);
 
-            // Save Table State (Persist manual cell edits)
-            history[index].custom_table_html = editModal.tableBody.innerHTML;
-
-            // Save & Refresh
-            localStorage.setItem('skp_history', JSON.stringify(history));
+        if (!error) {
             loadHistory();
             closeEditModal();
-            showNotification('Data SKP & Tabel Berhasil Diperbarui!', 'success');
+            showNotification('Data SKP & Tabel Berhasil Diperbarui di Supabase!', 'success');
         } else {
-            showNotification('Gagal Menyimpan: Data tidak ditemukan.', 'error');
+            console.error(error);
+            alert("Gagal memperbarui data di Supabase.");
         }
     });
 
-    function loadItemForEdit(id) {
-        const history = JSON.parse(localStorage.getItem('skp_history') || '[]');
-        const item = history.find(d => d.id === id);
+    async function loadItemForEdit(id) {
+        const { data: item, error } = await supabase.from('skp_history').select('*').eq('id', id).single();
 
         if (item) {
-            // Populate Inputs
             editModal.idInput.value = item.id;
             editModal.nama.value = item.pegawai.nama;
             editModal.nip.value = item.pegawai.nip;
             editModal.jabatan.value = item.pegawai.jabatan;
             editModal.opd.value = item.pegawai.opd;
 
-            // Load items into state
-            currentRhkItems = item.rhkItems ? [...item.rhkItems] : [
-                { atasan: item.rhk.atasan, indikator: item.rhk.indikator, levelAtasan: item.rhk.levelAtasan }
-            ];
+            currentRhkItems = item.rhk_items ? [...item.rhk_items] : [];
 
-            // For the edit modal inputs, we show the first one or leave empty for adding new ones
             if (currentRhkItems.length > 0) {
                 editModal.rhk.value = currentRhkItems[0].atasan;
                 editModal.indikator.value = currentRhkItems[0].indikator;
                 editModal.levelAtasan.value = currentRhkItems[0].levelAtasan || "";
             }
 
-            // Generate Preview Table
             if (item.custom_table_html) {
-                // Restore saved table state
                 editModal.tableBody.innerHTML = item.custom_table_html;
             } else {
-                // Generate fresh if no custom save exists
                 generateEditTable(item.pegawai.jabatan, currentRhkItems);
             }
 
             renderEditMiniRhkList();
-
-            // Show Modal
             editModal.overlay.classList.add('active');
         }
-    }
-
-    function deleteItem(id) {
-        showConfirm('Hapus Riwayat?', 'Riwayat SKP ini akan dihapus permanen.', 'Hapus')
-            .then(confirmed => {
-                if (confirmed) {
-                    let history = JSON.parse(localStorage.getItem('skp_history') || '[]');
-                    history = history.filter(item => item.id !== id);
-                    localStorage.setItem('skp_history', JSON.stringify(history));
-                    loadHistory(); // Refresh list
-                    showNotification('Riwayat berhasil dihapus!', 'success');
-                }
-            });
     }
 
 
