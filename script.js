@@ -194,51 +194,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // Attempt to load with uraian_tugas
-            let { data: savedJabatans, error } = await supabase.from('master_jabatans').select('nama, uraian_tugas');
+            // 1. Fetch from Supabase (Sorted by newest or name)
+            let { data: savedJabatans, error } = await supabase.from('master_jabatans')
+                .select('nama, uraian_tugas')
+                .order('created_at', { ascending: false });
 
-            if (error) {
-                // Specific Check: If column uraian_tugas is missing, fallback to just names
-                if (error.message && error.message.includes('uraian_tugas')) {
-                    console.warn("Column 'uraian_tugas' missing, falling back to name-only selection.");
-                    const { data: fallbackData, error: fallbackError } = await supabase.from('master_jabatans').select('nama');
-                    if (!fallbackError) {
-                        savedJabatans = (fallbackData || []).map(item => ({ nama: item.nama, uraian_tugas: "" }));
-                        error = null;
-                        // Continue with jList logic
-                    }
+            // 2. Handle Schema Fallback
+            if (error && error.message.includes('uraian_tugas')) {
+                const { data: fallbackData, error: fbError } = await supabase.from('master_jabatans').select('nama').order('nama', { ascending: true });
+                if (!fbError) {
+                    savedJabatans = (fallbackData || []).map(item => ({ nama: item.nama, uraian_tugas: "" }));
+                    error = null;
                 }
             }
 
-            if (error) {
-                console.warn("Database error, using defaults:", error);
-                const defaultList = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
-                populateJabatanUI(defaultList);
-                return;
-            }
+            if (error) throw error;
 
             let jList = savedJabatans || [];
 
-            // --- RESTORE MISSING DEFAULTS IF EMPTY OR MISSING ---
+            // 3. Restore Defaults if missing
             const existingNames = jList.map(j => j.nama.toLowerCase());
             const missingDefaults = defaultJabatans.filter(dj => !existingNames.includes(dj.toLowerCase()));
 
             if (missingDefaults.length > 0) {
                 const toInsert = missingDefaults.map(name => ({ nama: name, uraian_tugas: "" }));
-                const { error: insertError } = await supabase.from('master_jabatans').insert(toInsert);
-                if (!insertError) {
-                    const { data: refreshed } = await supabase.from('master_jabatans').select('nama, uraian_tugas');
-                    jList = refreshed || jList;
-                }
+                await supabase.from('master_jabatans').insert(toInsert);
+                // Re-fetch to get complete list
+                const { data: refreshed } = await supabase.from('master_jabatans')
+                    .select('nama, uraian_tugas')
+                    .order('created_at', { ascending: false });
+                jList = refreshed || jList;
             }
 
+            // 4. Final Fallback
             if (jList.length === 0) {
                 jList = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
             }
 
+            // 5. Update UI
             populateJabatanUI(jList);
+            console.log("Jabatans loaded successfully:", jList.length, "items.");
         } catch (err) {
-            console.error("Critical Error loading jabatans:", err);
+            console.error("Load Jabatans Failure:", err);
             const fallback = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
             populateJabatanUI(fallback);
         }
@@ -247,18 +244,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateJabatanUI(savedJabatans) {
         if (!Array.isArray(savedJabatans)) return;
 
-        // Populate Selector & Master Datalist
+        // 1. Populate Dropdown Selector (Buat SKP Form)
         if (jabatanInputs.selector) {
             jabatanInputs.selector.innerHTML = '<option value="">-- Pilih Jabatan --</option>';
             savedJabatans.forEach(jab => {
-                const option = document.createElement('option');
-                option.value = jab.nama;
-                option.textContent = jab.nama;
-                option.dataset.uraian = jab.uraian_tugas || "";
-                jabatanInputs.selector.appendChild(option);
+                const opt = document.createElement('option');
+                opt.value = jab.nama;
+                opt.textContent = jab.nama;
+                // Store the full description in a data attribute
+                opt.setAttribute('data-uraian', jab.uraian_tugas || "");
+                jabatanInputs.selector.appendChild(opt);
             });
         }
 
+        // 2. Populate Assistant Datalist
         if (jabatanInputs.masterDatalist) {
             jabatanInputs.masterDatalist.innerHTML = '';
             savedJabatans.forEach(jab => {
@@ -268,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Populate List in Manager (Now as Table Rows)
+        // 3. Populate Management Table (Daftar Jabatan Menu)
         if (jabatanInputs.list) {
             jabatanInputs.list.innerHTML = '';
             if (savedJabatans.length === 0) {
@@ -277,19 +276,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             savedJabatans.forEach((jab, idx) => {
                 const tr = document.createElement('tr');
+                const truncatedUraian = jab.uraian_tugas ? (jab.uraian_tugas.length > 150 ? jab.uraian_tugas.substring(0, 150) + "..." : jab.uraian_tugas) : '<span style="color:#ef4444; font-style:italic;">Belum ada uraian tugas</span>';
 
                 tr.innerHTML = `
                     <td style="text-align:center; font-weight:bold; color:#64748b;">${idx + 1}</td>
                     <td><strong style="color:var(--primary-color);">${jab.nama}</strong></td>
-                    <td style="font-size:0.85rem; color:#475569; line-height:1.4;">
-                        ${jab.uraian_tugas ? jab.uraian_tugas : '<span style="color:#ef4444; font-style:italic;">Belum ada uraian tugas</span>'}
-                    </td>
+                    <td style="font-size:0.85rem; color:#475569; line-height:1.4;">${truncatedUraian}</td>
                     <td style="text-align:center;">
                         <div style="display:flex; gap:5px; justify-content:center;">
-                            <button class="btn-info btn-sm" onclick="editJabatan('${jab.nama}', \`${(jab.uraian_tugas || '').replace(/`/g, '\\`')}\`)" style="padding: 5px 8px;">
+                            <button class="btn-info btn-sm" onclick="editJabatan('${jab.nama.replace(/'/g, "\\'")}', \`${(jab.uraian_tugas || '').replace(/`/g, '\\`')}\`)" style="padding: 5px 8px;">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn-danger btn-sm" onclick="deleteJabatan('${jab.nama}')" style="padding: 5px 8px;">
+                            <button class="btn-danger btn-sm" onclick="deleteJabatan('${jab.nama.replace(/'/g, "\\'")}')" style="padding: 5px 8px;">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -862,20 +860,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- AI AUTO-SUGGEST HANDLER ---
     const suggestBtn = document.getElementById('suggestBtn');
     if (suggestBtn) {
-        suggestBtn.addEventListener('click', () => {
+        suggestBtn.addEventListener('click', async () => {
             const userJabatan = inputs.jabatan.value;
+            const userBidang = inputs.bidang.value;
+            const userUraian = inputs.uraianSingkat.value;
+
             if (!userJabatan) {
-                showNotification('Harap pilih Jabatan terlebih dahulu untuk menggunakan AI!', 'error');
+                showNotification('Harap pilih Jabatan terlebih dahulu!', 'error');
                 return;
             }
 
-            // AI Simulation Logic: Match based on standard Menpan patterns
+            // 1. Try Real Gemini AI if Key exists
+            const apiKey = geminiConfig.getStoredKey();
+            if (apiKey && apiKey.length > 20) {
+                suggestBtn.disabled = true;
+                suggestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI Sedang Berpikir...';
+
+                try {
+                    const aiResult = await callGeminiAI(userJabatan, userBidang, ""); // We pass empty atasanRhk to let it suggest base on Jabatan/Uraian
+                    if (aiResult) {
+                        inputs.rhkBawahan.value = aiResult;
+                        showNotification('AI Gemini berhasil merumuskan RHK Anda!', 'success');
+                    }
+                } catch (e) {
+                    console.error("AI Error:", e);
+                } finally {
+                    suggestBtn.disabled = false;
+                    suggestBtn.innerHTML = '<i class="fas fa-robot"></i> AI Auto-Suggest (Linear Menpan)';
+                }
+            }
+
+            // 2. Linear Fallback Mapping (Manual Search)
             let matched = skpData.find(d =>
                 userJabatan.toLowerCase().includes(d.category.toLowerCase()) ||
-                d.description.toLowerCase().includes(userJabatan.toLowerCase())
+                d.description.toLowerCase().includes(userJabatan.toLowerCase()) ||
+                (userUraian && userUraian.toLowerCase().includes(d.category.toLowerCase()))
             );
 
-            // Specific Linear Mapping
             if (!matched) {
                 const jLower = userJabatan.toLowerCase();
                 if (jLower.includes('guru') || jLower.includes('sekolah')) matched = skpData.find(d => d.id === 'FUNCTIONAL_TEACHER');
@@ -885,39 +906,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (matched) {
-                inputs.rhkAtasan.value = matched.atasan.rhk;
-                inputs.indikatorAtasan.value = matched.atasan.indikator;
-
-                // Also suggest a customized Bawahan RHK if matched from data
-                if (matched.bawahan && matched.bawahan.rhk) {
-                    inputs.rhkBawahan.value = matched.bawahan.rhk;
-                }
+                // Only fill if empty or if AI didn't provide results
+                if (!inputs.rhkAtasan.value) inputs.rhkAtasan.value = matched.atasan.rhk;
+                if (!inputs.indikatorAtasan.value) inputs.indikatorAtasan.value = matched.atasan.indikator;
+                if (!inputs.rhkBawahan.value) inputs.rhkBawahan.value = matched.bawahan.rhk;
 
                 // --- LINEAR LEVEL MAPPING ---
                 const jLower = userJabatan.toLowerCase();
                 if (jLower.includes('kepala dinas') || jLower.includes('kepala badan') || jLower.includes('sekda')) {
-                    inputs.levelAtasan.value = "Bupati"; // Top level usually reports to Bupati/Gubernur
+                    inputs.levelAtasan.value = "Bupati";
                 } else if (jLower.includes('kepala bidang')) {
                     inputs.levelAtasan.value = "Kepala Dinas";
-                } else if (jLower.includes('kepala seksi') || jLower.includes('kasubag') || jLower.includes('sekretaris')) {
+                } else if (jLower.includes('kepala seksi') || jLower.includes('kasubag')) {
                     inputs.levelAtasan.value = "Kepala Bidang";
                 } else if (jLower.includes('guru')) {
                     inputs.levelAtasan.value = "Kepala Sekolah";
                 } else if (jLower.includes('korwil')) {
                     inputs.levelAtasan.value = "Koordinator Wilayah";
-                } else if (jLower.includes('dokter') || jLower.includes('perawat') || jLower.includes('bidan') || jLower.includes('rumah sakit')) {
-                    inputs.levelAtasan.value = "Direktur Rumah Sakit";
                 } else {
-                    // Default for staff usually reports to Head of Department or Section
-                    inputs.levelAtasan.value = "Kepala Bidang";
+                    inputs.levelAtasan.value = "Kepala Seksi / Kasubag";
                 }
 
                 showNotification('Saran AI Diterapkan! Level Atasan dikunci agar linier dengan posisi Anda.', 'success');
 
                 // Highlight changes
                 const high = [inputs.rhkAtasan, inputs.indikatorAtasan, inputs.levelAtasan];
-                high.forEach(el => el.style.boxShadow = '0 0 10px rgba(126, 34, 206, 0.5)');
-                setTimeout(() => high.forEach(el => el.style.boxShadow = 'none'), 2000);
+                high.forEach(el => { if (el) el.style.boxShadow = '0 0 10px rgba(126, 34, 206, 0.5)'; });
+                setTimeout(() => high.forEach(el => { if (el) el.style.boxShadow = 'none'; }), 2000);
             }
         });
     }
