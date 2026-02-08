@@ -508,8 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Disable button during processing
+            jabatanInputs.addBtn.disabled = true;
+            jabatanInputs.addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+
             try {
-                // Use maybeSingle to safely check if it exists (returns null if 0 rows, no error)
+                // 1. Existence Check
                 const { data: existing, error: checkError } = await supabase.from('master_jabatans')
                     .select('nama')
                     .ilike('nama', newVal)
@@ -519,36 +523,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let saveError;
                 if (existing) {
-                    // Update existing
+                    // 2. Update existing
                     const { error: updateError } = await supabase.from('master_jabatans')
                         .update({ uraian_tugas: uraianVal })
                         .ilike('nama', newVal);
                     saveError = updateError;
                 } else {
-                    // Insert new
+                    // 3. Insert new
                     const { error: insertError } = await supabase.from('master_jabatans')
                         .insert({ nama: newVal, uraian_tugas: uraianVal });
                     saveError = insertError;
                 }
 
                 if (saveError) {
-                    // Check for specific column error to give user advice
+                    // Handle specific missing column case for user
                     if (saveError.message && saveError.message.includes('uraian_tugas')) {
-                        throw new Error("Gagal: Kolom 'uraian_tugas' tidak ditemukan. Silakan jalankan SQL FIX di Dashboard Supabase untuk mengaktifkan fitur ini.");
-                    }
-                    if (saveError.message && (saveError.message.includes('relation') || saveError.message.includes('does not exist'))) {
-                        throw new Error("Gagal: Tabel 'master_jabatans' belum ada. Silakan buat tabel di Supabase.");
+                        throw new Error("Kolom 'uraian_tugas' tidak ditemukan di Supabase. Silakan jalankan perintah SQL FIX di Dashboard Supabase agar data bisa tersimpan.");
                     }
                     throw saveError;
                 }
 
+                // 4. Success Actions
                 jabatanInputs.newInput.value = '';
                 jabatanInputs.newUraian.value = '';
-                await loadJabatans();
-                showNotification('Jabatan Pelaksana & Uraian Berhasil Disimpan!', 'success');
+                await loadJabatans(); // Reload UI
+                showNotification('Jabatan & Uraian Berhasil Disimpan!', 'success');
             } catch (err) {
-                console.error("Save Error:", err);
-                showNotification(err.message || 'Gagal menyimpan data ke Database', 'error');
+                console.error("Jabatan Save Failure:", err);
+                showNotification(err.message || 'Gagal menyimpan data ke Supabase.', 'error');
+            } finally {
+                jabatanInputs.addBtn.disabled = false;
+                jabatanInputs.addBtn.innerHTML = '<i class="fas fa-plus"></i> Simpan Jabatan & Uraian Tugas';
             }
         });
     }
@@ -594,21 +599,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (geminiConfig.saveBtn) {
-        // Load existing key or the default user key
-        const currentKey = geminiConfig.getStoredKey();
-        geminiConfig.keyInput.value = currentKey;
-
-        // If it's the default key and not in localStorage yet, we could save it, 
-        // but getStoredKey already handles the fallback.
+        // Init UI with current key
+        geminiConfig.keyInput.value = geminiConfig.getStoredKey();
 
         geminiConfig.saveBtn.addEventListener('click', () => {
             const key = geminiConfig.keyInput.value.trim();
-            if (key) {
-                localStorage.setItem('gemini_api_key', key);
-                showNotification('Gemini API Key berhasil disimpan secara lokal!', 'success');
-            } else {
-                localStorage.removeItem('gemini_api_key');
-                showNotification('API Key dihapus. Sistem kembali ke mode standar.', 'info');
+            try {
+                if (key) {
+                    localStorage.setItem('gemini_api_key', key);
+                    showNotification('API Key tersimpan secara lokal!', 'success');
+                    console.log("API Key saved to localStorage.");
+                } else {
+                    localStorage.removeItem('gemini_api_key');
+                    showNotification('API Key dihapus.', 'info');
+                    // Reset to hardcoded fallback in UI after clear
+                    geminiConfig.keyInput.value = "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k";
+                }
+            } catch (e) {
+                console.error("Storage Error:", e);
+                showNotification('Gagal mengakses penyimpanan browser!', 'error');
             }
         });
     }
