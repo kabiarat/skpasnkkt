@@ -642,17 +642,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- JAMINAN BKD: ANTI-ECHO SANITATION ---
+    // --- JAMINAN BKD: DETECTOR & FINGERPRINT ---
+    function rhkFingerprint(text) {
+        if (!text) return "";
+        return text.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 50);
+    }
+
     function sanitizeRhk(aiRhk, atasanRhk) {
         if (!aiRhk || !atasanRhk) return aiRhk;
-        const normalize = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const nAi = normalize(aiRhk);
-        const nAtasan = normalize(atasanRhk);
+        const nAi = rhkFingerprint(aiRhk);
+        const nAtasan = rhkFingerprint(atasanRhk);
 
-        // Block if AI is just copying the boss's RHK
         if (nAi.includes(nAtasan) || nAtasan.includes(nAi)) {
-            console.warn("Jaminan BKD: AI mencoba menyalin RHK Atasan. Melakukan penyesuaian otomatis...");
-            return "Terlaksananya dukungan teknis dan operasional terkait: " + atasanRhk;
+            console.warn("Jaminan BKD: AI mencoba menyalin RHK Atasan. Menggunakan fallback murni...");
+            return "Terlaksananya dukungan teknis dan operasional sesuai tugas jabatan yang ditetapkan";
         }
         return aiRhk;
     }
@@ -1068,9 +1071,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function executeGenerate(userJabatan, userRhkAtasan, userRhkBawahan, userIndikatorAtasan, userLevelAtasan) {
-        // Anti-Duplicate Check
-        if (currentRhkItems.some(r => r.atasan.trim() === userRhkAtasan.trim())) {
-            showNotification('RHK Atasan ini sudah ditambahkan ke daftar!', 'error');
+        // Semantic Anti-Duplicate Check (Fingerprint Level)
+        const newFp = rhkFingerprint(userRhkAtasan);
+        if (currentRhkItems.some(r => rhkFingerprint(r.atasan) === newFp)) {
+            showNotification('RHK ini (atau yang sangat mirip) sudah ada di tabel!', 'error');
             return;
         }
 
@@ -1827,94 +1831,136 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // --- AI ASSISTANT GUIDED FLOW LOGIC ---
+    // --- AI ASSISTANT GUIDED FLOW LOGIC (PNS & PPPK) ---
     const chatInput = document.getElementById('aiChatInput');
     const chatBtn = document.getElementById('aiSendBtn');
     const chatWindow = document.getElementById('aiChatWindow');
 
     let chatFlow = {
-        step: 1,
-        jabatan: '',
-        pangkat: ''
+        step: 1, // 1: Status, 2: Rank, 3: Jabatan, 4: Generate
+        status: '',
+        pangkat: '',
+        jabatan: ''
+    };
+
+    const addMsgUI = (text, role, isHtml = false) => {
+        const msgDiv = document.createElement('div');
+        msgDiv.style = role === 'user' ?
+            'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;' :
+            'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; line-height: 1.6;';
+
+        if (isHtml) {
+            msgDiv.innerHTML = text;
+        } else {
+            msgDiv.textContent = text;
+        }
+
+        chatWindow.appendChild(msgDiv);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        return msgDiv;
+    };
+
+    const showChoices = (choices) => {
+        const container = document.createElement('div');
+        container.style = 'display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;';
+        choices.forEach(c => {
+            const btn = document.createElement('button');
+            btn.textContent = c;
+            btn.style = 'padding: 8px 15px; border: 1px solid var(--primary-color); background: white; color: var(--primary-color); border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: 0.2s;';
+            btn.onmouseover = () => { btn.style.background = 'var(--primary-color)'; btn.style.color = 'white'; };
+            btn.onmouseout = () => { btn.style.background = 'white'; btn.style.color = 'var(--primary-color)'; };
+            btn.onclick = () => handleInput(c);
+            container.appendChild(btn);
+        });
+        chatWindow.appendChild(container);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    };
+
+    const startStep1 = () => {
+        chatFlow = { step: 1, status: '', pangkat: '', jabatan: '' };
+        showChoices(['PNS', 'PPPK']);
+    };
+
+    const handleInput = async (val) => {
+        if (!val) return;
+        addMsgUI(val, 'user');
+
+        if (chatFlow.step === 1) {
+            chatFlow.status = val;
+            chatFlow.step = 2;
+            const ranks = val === 'PNS' ?
+                ['II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'] :
+                ['V', 'VII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII'];
+
+            setTimeout(() => {
+                addMsgUI(`Status: **${val}**. Silakan pilih **GOLONGAN** Anda:`, 'ai', true);
+                showChoices(ranks);
+            }, 500);
+        }
+        else if (chatFlow.step === 2) {
+            chatFlow.pangkat = val;
+            chatFlow.step = 3;
+            setTimeout(() => {
+                addMsgUI(`Golongan: **${val}**. Terakhir, masukkan **NAMA JABATAN** Anda (Contoh: Penata Layanan Operasional):`, 'ai', true);
+            }, 500);
+        }
+        else if (chatFlow.step === 3) {
+            chatFlow.jabatan = val;
+            chatFlow.step = 4;
+
+            const thinking = addMsgUI('<i class="fas fa-circle-notch fa-spin"></i> Sedang merumuskan uraian tugas Anda...', 'ai', true);
+
+            try {
+                const prompt = `Berikan daftar Uraian Tugas (Job Description) yang sangat spesifik dan profesional untuk:
+                Status: ${chatFlow.status}
+                Golongan: ${chatFlow.pangkat}
+                Jabatan: ${chatFlow.jabatan}
+                
+                Gunakan standar Permenpan-RB. Output harus berupa poin-poin (bullet points).
+                Identifikasi apakah levelnya Pelaksana (Gol V-VII/II) atau Ahli (Gol IX-XI/III).
+                JANGAN berikan intro/outro. Langsung daftar tugas saja.`;
+
+                const response = await callGeminiChat([{ role: 'user', parts: [{ text: prompt }] }]);
+                thinking.remove();
+
+                addMsgUI(response, 'ai', true);
+
+                // Apply Button
+                const applyBtn = document.createElement('button');
+                applyBtn.className = 'btn-secondary';
+                applyBtn.style = 'margin-top: 10px; margin-bottom: 30px; width: 100%; border-radius: 12px; padding: 12px; background: #059669; color: white; border: none; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(5,150,105,0.3);';
+                applyBtn.innerHTML = '<i class="fas fa-file-import"></i> Salin ke Daftar Jabatan';
+                applyBtn.onclick = () => {
+                    document.querySelector('[data-target="jabatan-section"]').click();
+                    document.getElementById('newJabatan').value = chatFlow.jabatan;
+                    document.getElementById('newUraian').value = response.replace(/<br>/g, '\n');
+                    showNotification('Data Jabatan telah disalin!', 'success');
+                    startStep1(); // Reset for next use
+                };
+                chatWindow.appendChild(applyBtn);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            } catch (err) {
+                thinking.textContent = "Terjadi gangguan. Silakan coba lagi.";
+            }
+        }
     };
 
     if (chatBtn && chatInput) {
-        const addMsgUI = (text, role) => {
-            const msgDiv = document.createElement('div');
-            msgDiv.style = role === 'user' ?
-                'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;' :
-                'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; line-height: 1.6;';
-
-            if (role === 'ai') {
-                msgDiv.innerHTML = text.replace(/\n/g, '<br>');
-            } else {
-                msgDiv.textContent = text;
-            }
-
-            chatWindow.appendChild(msgDiv);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        };
-
-        const sendAiMsg = async () => {
+        chatBtn.addEventListener('click', () => {
             const val = chatInput.value.trim();
-            if (!val) return;
-
-            addMsgUI(val, 'user');
+            if (val) handleInput(val);
             chatInput.value = '';
-
-            if (chatFlow.step === 1) {
-                chatFlow.jabatan = val;
-                chatFlow.step = 2;
-                setTimeout(() => addMsgUI(`Terima kasih. Selanjutnya, silakan masukkan **PANGKAT & GOLONGAN** Anda (Contoh: Penata Muda - III/a).`, 'ai'), 500);
+        });
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const val = chatInput.value.trim();
+                if (val) handleInput(val);
+                chatInput.value = '';
             }
-            else if (chatFlow.step === 2) {
-                chatFlow.pangkat = val;
-                chatFlow.step = 3;
-
-                const thinking = document.createElement('div');
-                thinking.style = 'background: #e2e8f0; color: #64748b; padding: 12px 18px; border-radius: 15px; align-self: flex-start; margin-bottom: 15px; font-style: italic;';
-                thinking.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Mohon tunggu sebentar untuk mengambil data uraian tugas anda...';
-                chatWindow.appendChild(thinking);
-                chatWindow.scrollTop = chatWindow.scrollHeight;
-
-                try {
-                    const prompt = `Berikan daftar Uraian Tugas (Job Description) yang KHUSUS untuk Jabatan: ${chatFlow.jabatan} dengan Pangkat/Golongan: ${chatFlow.pangkat}. 
-                    Gunakan standar Permenpan-RB. Output harus berupa poin-poin (bullet points) yang jelas, ringkas, dan profesional. 
-                    JANGAN berikan intro/outro. Langsung daftar tugas saja.`;
-
-                    const response = await callGeminiChat([{ role: 'user', parts: [{ text: prompt }] }]);
-                    thinking.remove();
-
-                    // Display response
-                    addMsgUI(response, 'ai');
-
-                    // Add "Apply" Button
-                    const applyBtn = document.createElement('button');
-                    applyBtn.className = 'btn-secondary';
-                    applyBtn.style = 'margin-bottom: 20px; width: 100%; border-radius: 10px; padding: 10px; background: #059669; color: white; border: none; font-weight: bold; cursor: pointer;';
-                    applyBtn.innerHTML = '<i class="fas fa-copy"></i> Salin ke Daftar Jabatan';
-                    applyBtn.onclick = () => {
-                        // Switch to Jabatan section
-                        document.querySelector('[data-target="jabatan-section"]').click();
-                        // Fill form
-                        document.getElementById('newJabatan').value = chatFlow.jabatan;
-                        document.getElementById('newUraian').value = response;
-                        // Show success
-                        showNotification('Data berhasil disalin! Silakan klik Simpan Jabatan Baru.', 'success');
-                        // Reset Chat
-                        chatFlow = { step: 1, jabatan: '', pangkat: '' };
-                    };
-                    chatWindow.appendChild(applyBtn);
-                    chatWindow.scrollTop = chatWindow.scrollHeight;
-
-                } catch (err) {
-                    thinking.textContent = "Gagal mengambil data. Coba lagi.";
-                }
-            }
-        };
-
-        chatBtn.addEventListener('click', sendAiMsg);
-        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendAiMsg(); });
+        });
+        // Initial Kickoff
+        startStep1();
     }
 
     // New Dedicated Chat API Function
@@ -1930,17 +1976,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const systemInstruction = {
             role: "user",
             parts: [{
-                text: `SISTEM: Anda adalah Robot Analis Kepegawaian. 
+                text: `SISTEM: Anda adalah Robot Analis Kepegawaian Nasional. 
             KONTEKS PEGAWAI: Jabatan: ${curJab}, Bidang: ${curBid}, Uraian Tugas: ${curUraian}.
             
-            ATURAN KETAT (DILARANG DILANGGAR):
-            1. JANGAN ucapkan salam, terima kasih, atau perkenalan.
-            2. JANGAN jelaskan apa itu jabatan tersebut atau betapa pentingnya ia.
-            3. JANGAN bertanya balik kepada pengguna (seperti 'Di unit mana Anda bertugas?'). Gunakan konteks di atas.
-            4. LANGSUNG berikan list data teknis/list uraian tugas yang diminta.
-            5. Gunakan format Markdown murni. 
-            6. Jika user tanya sesuatu yang sudah ada di konteks, JANGAN tanya lagi. 
-            7. Jawaban harus No-Nonsense, kaku, dan profesional.` }]
+            ATURAN KETAT PPPK & PNS:
+            1. Jika Golongan menggunakan angka Romawi(V, VII, IX, X, XI), deteksi itu sebagai GOLONGAN PPPK.
+            2. PPPK Gol IX setara Ahli Pertama, Gol X - XI setara Ahli Muda.Sesuaikan tingkat kesulitan tugasnya.
+            3. JANGAN ucapkan salam, terima kasih, atau perkenalan.
+            4. JANGAN bertanya balik kepada pengguna.Gunakan konteks di atas.
+            5. LANGSUNG berikan list data teknis / list uraian tugas yang diminta.
+            6. Jawaban harus No - Nonsense, kaku, dan profesional.` }]
         };
 
         const contents = [systemInstruction, ...history];
