@@ -539,13 +539,15 @@
             <div class="card bg-white p-6">
                 <ol style="line-height: 2; margin-left: 20px;">
                     <li>Buka menu <strong>Buat SKP</strong>.</li>
-                    <li>Isi <strong>Data Pegawai</strong> (Nama, NIP, Jabatan, OPD).</li>
+                    <li>Pilih <strong>Jabatan</strong> (Sistem akan otomatis memuat <strong>Uraian Tugas</strong>).</li>
+                    <li>Lengkapi <strong>Data Pegawai</strong> (Nama, NIP, Bidang, OPD).</li>
                     <li>Isi <strong>RHK Atasan</strong> dan <strong>Indikator Kinerja Atasan</strong>.</li>
-                    <li>Klik tombol <strong>Generate SKP</strong> untuk melihat pratinjau tabel.</li>
-                    <li>Jika sudah sesuai, klik <strong>Simpan Data</strong> untuk menyimpannya ke menu Riwayat.</li>
-                    <li>Klik <strong>Download PDF / Print</strong> untuk mencetak atau menyimpan sebagai PDF.</li>
-                    <li>Untuk mengedit, buka menu <strong>Riwayat SKP</strong> dan klik tombol Edit pada item yang
-                        diinginkan.</li>
+                    <li>Klik tombol <strong>Tambahkan RHK ke Tabel</strong>. Sistem (AI) akan otomatis merumuskan
+                        <strong>RHK Anda</strong>, Indikator, dan Rencana Aksi secara cerdas.</li>
+                    <li>Anda bisa menambah lebih dari satu RHK Atasan ke dalam satu tabel SKP.</li>
+                    <li>Jika sudah lengkap, klik <strong>Simpan ke Database</strong> untuk menyimpan secara permanen.
+                    </li>
+                    <li>Cetak atau download PDF melalui menu <strong>Riwayat SKP</strong>.</li>
                 </ol>
             </div>
         </section>
@@ -876,18 +878,19 @@
                 <ol style="line-height: 1.8; margin-left: 20px; color: #334155; text-align: left;">
                     <li>Pilih <strong>Jabatan</strong> (Sistem akan otomatis memuat <strong>Uraian Tugas</strong>).</li>
                     <li>Lengkapi data diri (Nama, NIP, Bidang, & Unit Kerja).</li>
-                    <li>Isi <strong>RHK Atasan</strong> yang ingin diintervensi.</li>
-                    <li>Klik tombol <span
-                            style="background:linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); color:#7e22ce; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">💡
-                            Buat RHK Saya...</span> untuk merumuskan kalimat secara otomatis menggunakan <strong>Gemini
-                            AI</strong>.</li>
+                    <li>Isi <strong>RHK Atasan</strong> dan <strong>Indikator Atasan</strong> yang ingin diintervensi.
+                    </li>
                     <li>Klik tombol <span
                             style="background:var(--primary-color); color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Tambahkan
-                            RHK ke Tabel</span> untuk memasukkan hasil ke daftar.</li>
+                            RHK ke Tabel</span>.</li>
+                    <li><i class="fas fa-robot" style="color:var(--primary-color);"></i> <strong>Secara
+                            Otomatis:</strong> AI Gemini akan langsung merumuskan RHK Anda, Indikator Kinerja, dan
+                        Rencana Aksi yang paling linear dengan tugas Anda.</li>
                     <li>Anda bisa menambah lebih dari satu RHK Atasan ke dalam satu tabel SKP.</li>
-                    <li>Jika sudah lengkap, klik <span
+                    <li>Klik <span
                             style="background:var(--success-color); color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Simpan
                             ke Database</span> untuk menyimpan secara permanen.</li>
+                    <li>Cetak hasil melalui menu <strong>Riwayat SKP</strong>.</li>
                 </ol>
                 <div style="margin-top: 20px; text-align: center;">
                     <button id="btnUnderstand" class="btn-primary" style="width: 100%;">Saya Mengerti</button>
