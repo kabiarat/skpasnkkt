@@ -688,18 +688,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            // Using v1 stable endpoint instead of v1beta
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        topK: 40,
+                        topP: 0.95,
+                        maxOutputTokens: 1024,
+                    }
                 })
             });
 
             const data = await response.json();
 
             if (data.error) {
-                console.error("Gemini API Error:", data.error.message);
+                console.error("Gemini API Status Error:", data.error.code, data.error.message);
+                // Fallback attempt with different model if 404 occurs
+                if (data.error.code === 404) {
+                    console.warn("Retrying with gemini-pro...");
+                    return await callGeminiAIFallback(jabatan, bidang, atasanRhk, apiKey);
+                }
                 return null;
             }
 
@@ -709,18 +721,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         return JSON.parse(text);
                     } catch (e) {
-                        console.error("JSON Parse Error on AI output:", e);
-                        // Fallback: If JSON fails, treat it as plain text RHK
-                        return { rhk: text.substring(0, 200) };
+                        return { rhk: text.substring(0, 250) };
                     }
                 }
                 return text.replace(/"/g, '');
             }
             return null;
         } catch (error) {
-            console.error("Fetch Error:", error);
+            console.error("Critical Network Error:", error);
             return null;
         }
+    }
+
+    // Secondary fallback for resilience
+    async function callGeminiAIFallback(jabatan, bidang, atasanRhk, apiKey) {
+        const prompt = `Berikan kalimat RHK untuk ${jabatan} di ${bidang}. Singkat saja.`;
+        try {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const d = await resp.json();
+            if (d.candidates) return d.candidates[0].content.parts[0].text;
+        } catch (e) { return null; }
+        return null;
     }
 
     // --- AUTO-GENERATE RHK BAWAHAN LOGIC (INTERNAL) ---
