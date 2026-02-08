@@ -186,52 +186,43 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     async function loadJabatans() {
+        console.log("Supabase: Fetching Jabatans...");
         if (jabatanInputs.list) {
-            jabatanInputs.list.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: gray;">Memuat daftar jabatan...</td></tr>';
+            jabatanInputs.list.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: gray;"><i class="fas fa-spinner fa-spin"></i> Menghubungkan ke Supabase...</td></tr>';
         }
         if (jabatanInputs.selector) {
             jabatanInputs.selector.innerHTML = '<option value="">-- Memuat Jabatan... --</option>';
         }
 
         try {
-            // 1. Fetch from Supabase (Sorted by newest or name)
+            // Fetch sorted by name so it's predictable
             let { data: savedJabatans, error } = await supabase.from('master_jabatans')
-                .select('nama, uraian_tugas')
-                .order('created_at', { ascending: false });
+                .select('*')
+                .order('nama', { ascending: true });
 
-            // 2. Handle Schema Fallback
-            if (error && error.message.includes('uraian_tugas')) {
-                const { data: fallbackData, error: fbError } = await supabase.from('master_jabatans').select('nama').order('nama', { ascending: true });
-                if (!fbError) {
-                    savedJabatans = (fallbackData || []).map(item => ({ nama: item.nama, uraian_tugas: "" }));
-                    error = null;
-                }
+            if (error) {
+                console.error("Supabase Fetch Error:", error);
+                throw error;
             }
-
-            if (error) throw error;
 
             let jList = savedJabatans || [];
+            console.log("Supabase Data Received:", jList);
 
-            // 3. Optional: Restore Defaults ONLY if table is empty
+            // If empty, show defaults as temporary placeholder in UI but don't save them
             if (jList.length === 0) {
-                console.log("Database table is empty, inserting defaults...");
-                const toInsert = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
-                const { error: insertError } = await supabase.from('master_jabatans').insert(toInsert);
-                if (!insertError) {
-                    const { data: refreshed } = await supabase.from('master_jabatans')
-                        .select('nama, uraian_tugas')
-                        .order('created_at', { ascending: false });
-                    jList = refreshed || toInsert;
-                } else {
-                    jList = toInsert;
-                }
+                console.warn("Table master_jabatans is empty in Supabase. Using local defaults.");
+                jList = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
             }
 
-            // 5. Update UI
             populateJabatanUI(jList);
-            console.log("Jabatans loaded successfully:", jList.length, "items.");
         } catch (err) {
-            console.error("Load Jabatans Failure:", err);
+            console.error("Critical Load Error:", err);
+            if (jabatanInputs.list) {
+                jabatanInputs.list.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:#ef4444;">
+                    <i class="fas fa-exclamation-triangle"></i> Gagal Memuat dari Supabase.<br>
+                    <small>${err.message}</small>
+                </td></tr>`;
+            }
             const fallback = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
             populateJabatanUI(fallback);
         }
@@ -272,18 +263,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             savedJabatans.forEach((jab, idx) => {
                 const tr = document.createElement('tr');
-                const truncatedUraian = jab.uraian_tugas ? (jab.uraian_tugas.length > 150 ? jab.uraian_tugas.substring(0, 150) + "..." : jab.uraian_tugas) : '<span style="color:#ef4444; font-style:italic;">Belum ada uraian tugas</span>';
+                const uraianPreview = jab.uraian_tugas || "";
+                const truncatedUraian = uraianPreview ? (uraianPreview.length > 200 ? uraianPreview.substring(0, 200) + "..." : uraianPreview) : '<span style="color:#f43f5e; font-style:italic;">Kosong (Silakan isi uraian tugas)</span>';
+
+                // Safe strings for onclick
+                const safeNama = (jab.nama || "").replace(/'/g, "\\'");
+                const safeUraian = (jab.uraian_tugas || "").replace(/`/g, "\\`").replace(/\$/g, "\\$");
 
                 tr.innerHTML = `
-                    <td style="text-align:center; font-weight:bold; color:#64748b;">${idx + 1}</td>
-                    <td><strong style="color:var(--primary-color);">${jab.nama}</strong></td>
-                    <td style="font-size:0.85rem; color:#475569; line-height:1.4;">${truncatedUraian}</td>
+                    <td style="text-align:center; font-weight:bold; color:#64748b; background:#f8fafc;">${idx + 1}</td>
+                    <td style="font-weight:600; color:#1e293b;">${jab.nama}</td>
+                    <td style="font-size:0.85rem; color:#475569; line-height:1.5; white-space: pre-wrap;">${truncatedUraian}</td>
                     <td style="text-align:center;">
-                        <div style="display:flex; gap:5px; justify-content:center;">
-                            <button class="btn-info btn-sm" onclick="editJabatan('${jab.nama.replace(/'/g, "\\'")}', \`${(jab.uraian_tugas || '').replace(/`/g, '\\`')}\`)" style="padding: 5px 8px;">
+                        <div style="display:flex; gap:8px; justify-content:center;">
+                            <button class="btn-info btn-sm" onclick="editJabatan('${safeNama}', \`${safeUraian}\`)" title="Edit Jabatan/Uraian" style="background:#0ea5e9; border:none; color:white;">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn-danger btn-sm" onclick="deleteJabatan('${jab.nama.replace(/'/g, "\\'")}')" style="padding: 5px 8px;">
+                            <button class="btn-danger btn-sm" onclick="deleteJabatan('${safeNama}')" title="Hapus Jabatan" style="background:#ef4444; border:none; color:white;">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -530,9 +526,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (saveError) {
-                    // Handle specific missing column case for user
-                    if (saveError.message && saveError.message.includes('uraian_tugas')) {
-                        throw new Error("Kolom 'uraian_tugas' tidak ditemukan di Supabase. Silakan jalankan perintah SQL FIX di Dashboard Supabase agar data bisa tersimpan.");
+                    console.error("Database Save Error:", saveError);
+                    // Specific RLS or Policy Error
+                    if (saveError.code === '42501') {
+                        throw new Error("Izin Simpan Ditolak (RLS Aktif). Pastikan Anda sudah menjalankan SQL 'DISABLE ROW LEVEL SECURITY' di Supabase.");
+                    }
+                    if (saveError.message && (saveError.message.includes('uraian_tugas') || saveError.message.includes('column'))) {
+                        throw new Error("Struktur tabel tidak sesuai. Pastikan kolom 'uraian_tugas' sudah ada di tabel 'master_jabatans'.");
                     }
                     throw saveError;
                 }
@@ -540,11 +540,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 4. Success Actions
                 jabatanInputs.newInput.value = '';
                 jabatanInputs.newUraian.value = '';
-                await loadJabatans(); // Reload UI
-                showNotification('Jabatan & Uraian Berhasil Disimpan!', 'success');
+                await loadJabatans();
+                showNotification('Data Berhasil Disimpan ke Supabase!', 'success');
             } catch (err) {
-                console.error("Jabatan Save Failure:", err);
-                showNotification(err.message || 'Gagal menyimpan data ke Supabase.', 'error');
+                console.error("Save Operation Failed:", err);
+                showNotification(err.message || 'Gagal menyimpan ke database.', 'error');
             } finally {
                 jabatanInputs.addBtn.disabled = false;
                 jabatanInputs.addBtn.innerHTML = '<i class="fas fa-plus"></i> Simpan Jabatan & Uraian Tugas';
@@ -1757,6 +1757,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // Start the application
-    initialLoad();
+    console.log("!!! Application Bootstrap Started !!!");
+
+    // Explicit initial load with success check
+    async function startApp() {
+        try {
+            await initialLoad();
+            console.log("!!! Application Initialized Successfully !!!");
+        } catch (err) {
+            console.error("!!! Application Initialization Failed !!!", err);
+        }
+    }
+
+    startApp();
+
+    // Manual Refresh Button Listener (if added to HTML later)
+    const refreshBtn = document.getElementById('refreshJabatanBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', async () => {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-sync fa-spin"></i>';
+            await loadJabatans();
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = '<i class="fas fa-sync"></i> Refresh Data';
+        });
+    }
 
 }); // End DOMContentLoaded

@@ -418,8 +418,12 @@
 
             <div class="card bg-white p-6" style="margin-top: 20px; overflow-x: auto;">
                 <h3
-                    style="margin-bottom: 15px; color: var(--primary-color); display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-briefcase"></i> Daftar Jabatan Pelaksana Terdaftar
+                    style="margin-bottom: 15px; color: var(--primary-color); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <span><i class="fas fa-briefcase"></i> Daftar Jabatan Pelaksana Terdaftar</span>
+                    <button id="refreshJabatanBtn" class="btn-sm"
+                        style="background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; cursor: pointer; border-radius: 6px; padding: 5px 12px; font-size: 0.8rem;">
+                        <i class="fas fa-sync"></i> Refresh Data
+                    </button>
                 </h3>
                 <table class="mgmt-table">
                     <thead>
