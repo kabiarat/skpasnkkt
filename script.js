@@ -212,23 +212,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let jList = savedJabatans || [];
 
-            // 3. Restore Defaults if missing
-            const existingNames = jList.map(j => j.nama.toLowerCase());
-            const missingDefaults = defaultJabatans.filter(dj => !existingNames.includes(dj.toLowerCase()));
-
-            if (missingDefaults.length > 0) {
-                const toInsert = missingDefaults.map(name => ({ nama: name, uraian_tugas: "" }));
-                await supabase.from('master_jabatans').insert(toInsert);
-                // Re-fetch to get complete list
-                const { data: refreshed } = await supabase.from('master_jabatans')
-                    .select('nama, uraian_tugas')
-                    .order('created_at', { ascending: false });
-                jList = refreshed || jList;
-            }
-
-            // 4. Final Fallback
+            // 3. Optional: Restore Defaults ONLY if table is empty
             if (jList.length === 0) {
-                jList = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
+                console.log("Database table is empty, inserting defaults...");
+                const toInsert = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
+                const { error: insertError } = await supabase.from('master_jabatans').insert(toInsert);
+                if (!insertError) {
+                    const { data: refreshed } = await supabase.from('master_jabatans')
+                        .select('nama, uraian_tugas')
+                        .order('created_at', { ascending: false });
+                    jList = refreshed || toInsert;
+                } else {
+                    jList = toInsert;
+                }
             }
 
             // 5. Update UI
@@ -1759,5 +1755,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+
+    // Start the application
+    initialLoad();
 
 }); // End DOMContentLoaded
