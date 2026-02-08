@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Load saved logo from Supabase
         async function loadAppLogo() {
-            const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'skp_app_logo').single();
+            const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'skp_app_logo').maybeSingle();
             if (data && appLogo) {
                 appLogo.src = data.value;
                 if (heroLogoContainer) heroLogoContainer.style.display = 'block';
@@ -135,6 +135,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const jabatanInputs = {
         selector: document.getElementById('jabatanSelector'),
         newInput: document.getElementById('newJabatan'),
+        masterDatalist: document.getElementById('masterJabatanOptions'),
+        newUraian: document.getElementById('newUraian'),
         addBtn: document.getElementById('addJabatanBtn'),
         list: document.getElementById('jabatanList')
     };
@@ -145,6 +147,13 @@ document.addEventListener('DOMContentLoaded', () => {
         newInput: document.getElementById('newLevel'),
         addBtn: document.getElementById('addLevelBtn'),
         list: document.getElementById('levelList')
+    };
+
+    const bidangInputs = {
+        selector: document.getElementById('bidangSelector'),
+        newInput: document.getElementById('newBidang'),
+        addBtn: document.getElementById('addBidangBtn'),
+        list: document.getElementById('bidangList')
     };
 
     // Default Jabatans
@@ -166,58 +175,151 @@ document.addEventListener('DOMContentLoaded', () => {
         "Jabatan Fungsional"
     ];
 
-    async function loadJabatans() {
-        const { data: savedJabatans, error } = await supabase.from('master_jabatans').select('nama');
+    const defaultBidangs = [
+        "Sekretariat",
+        "Subbag Umum & Kepegawaian",
+        "Subbag Keuangan",
+        "Subbag Perencanaan & Program",
+        "Bidang Teknis I",
+        "Bidang Teknis II",
+        "Bagian Tata Usaha"
+    ];
 
-        if (error) {
-            console.error("Error loading jabatans:", error);
-            return;
+    async function loadJabatans() {
+        if (jabatanInputs.list) {
+            jabatanInputs.list.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: gray;">Memuat daftar jabatan...</td></tr>';
+        }
+        if (jabatanInputs.selector) {
+            jabatanInputs.selector.innerHTML = '<option value="">-- Memuat Jabatan... --</option>';
         }
 
-        let jabList = savedJabatans.map(j => j.nama);
+        try {
+            // Attempt to load with uraian_tugas
+            let { data: savedJabatans, error } = await supabase.from('master_jabatans').select('nama, uraian_tugas');
 
-        // Populate Selector
-        jabatanInputs.selector.innerHTML = '<option value="">-- Pilih Jabatan --</option>';
-        jabList.forEach(jab => {
-            const option = document.createElement('option');
-            option.value = jab;
-            option.textContent = jab;
-            jabatanInputs.selector.appendChild(option);
-        });
+            if (error) {
+                // Specific Check: If column uraian_tugas is missing, fallback to just names
+                if (error.message && error.message.includes('uraian_tugas')) {
+                    console.warn("Column 'uraian_tugas' missing, falling back to name-only selection.");
+                    const { data: fallbackData, error: fallbackError } = await supabase.from('master_jabatans').select('nama');
+                    if (!fallbackError) {
+                        savedJabatans = (fallbackData || []).map(item => ({ nama: item.nama, uraian_tugas: "" }));
+                        error = null;
+                        // Continue with jList logic
+                    }
+                }
+            }
 
-        // Populate List in Manager
-        jabatanInputs.list.innerHTML = '';
-        jabList.forEach((jab, index) => {
-            const li = document.createElement('li');
-            li.style.padding = '10px';
-            li.style.borderBottom = '1px solid #eee';
-            li.style.display = 'flex';
-            li.style.justifyContent = 'space-between';
-            li.style.alignItems = 'center';
+            if (error) {
+                console.warn("Database error, using defaults:", error);
+                const defaultList = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
+                populateJabatanUI(defaultList);
+                return;
+            }
 
-            li.innerHTML = `
-                <span>${jab}</span>
-                <button class="btn-danger btn-sm" onclick="deleteJabatan('${jab}')" style="padding: 5px 10px; font-size: 0.8rem;">Hapus</button>
-            `;
-            jabatanInputs.list.appendChild(li);
-        });
+            let jList = savedJabatans || [];
+
+            // --- RESTORE MISSING DEFAULTS IF EMPTY OR MISSING ---
+            const existingNames = jList.map(j => j.nama.toLowerCase());
+            const missingDefaults = defaultJabatans.filter(dj => !existingNames.includes(dj.toLowerCase()));
+
+            if (missingDefaults.length > 0) {
+                const toInsert = missingDefaults.map(name => ({ nama: name, uraian_tugas: "" }));
+                const { error: insertError } = await supabase.from('master_jabatans').insert(toInsert);
+                if (!insertError) {
+                    const { data: refreshed } = await supabase.from('master_jabatans').select('nama, uraian_tugas');
+                    jList = refreshed || jList;
+                }
+            }
+
+            if (jList.length === 0) {
+                jList = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
+            }
+
+            populateJabatanUI(jList);
+        } catch (err) {
+            console.error("Critical Error loading jabatans:", err);
+            const fallback = defaultJabatans.map(name => ({ nama: name, uraian_tugas: "" }));
+            populateJabatanUI(fallback);
+        }
+    }
+
+    function populateJabatanUI(savedJabatans) {
+        if (!Array.isArray(savedJabatans)) return;
+
+        // Populate Selector & Master Datalist
+        if (jabatanInputs.selector) {
+            jabatanInputs.selector.innerHTML = '<option value="">-- Pilih Jabatan --</option>';
+            savedJabatans.forEach(jab => {
+                const option = document.createElement('option');
+                option.value = jab.nama;
+                option.textContent = jab.nama;
+                option.dataset.uraian = jab.uraian_tugas || "";
+                jabatanInputs.selector.appendChild(option);
+            });
+        }
+
+        if (jabatanInputs.masterDatalist) {
+            jabatanInputs.masterDatalist.innerHTML = '';
+            savedJabatans.forEach(jab => {
+                const opt = document.createElement('option');
+                opt.value = jab.nama;
+                jabatanInputs.masterDatalist.appendChild(opt);
+            });
+        }
+
+        // Populate List in Manager (Now as Table Rows)
+        if (jabatanInputs.list) {
+            jabatanInputs.list.innerHTML = '';
+            if (savedJabatans.length === 0) {
+                jabatanInputs.list.innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:gray;">Daftar jabatan kosong.</td></tr>';
+            }
+
+            savedJabatans.forEach((jab, idx) => {
+                const tr = document.createElement('tr');
+
+                tr.innerHTML = `
+                    <td style="text-align:center; font-weight:bold; color:#64748b;">${idx + 1}</td>
+                    <td><strong style="color:var(--primary-color);">${jab.nama}</strong></td>
+                    <td style="font-size:0.85rem; color:#475569; line-height:1.4;">
+                        ${jab.uraian_tugas ? jab.uraian_tugas : '<span style="color:#ef4444; font-style:italic;">Belum ada uraian tugas</span>'}
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:flex; gap:5px; justify-content:center;">
+                            <button class="btn-info btn-sm" onclick="editJabatan('${jab.nama}', \`${(jab.uraian_tugas || '').replace(/`/g, '\\`')}\`)" style="padding: 5px 8px;">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-danger btn-sm" onclick="deleteJabatan('${jab.nama}')" style="padding: 5px 8px;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                jabatanInputs.list.appendChild(tr);
+            });
+        }
     }
 
     async function loadLevels() {
+        if (levelInputs.list) {
+            levelInputs.list.innerHTML = '<li style="padding: 10px; border-bottom: 1px solid #eee; color: gray;">Memuat...</li>';
+        }
+
         const { data: savedLevels, error } = await supabase.from('master_levels').select('nama');
 
         if (error) {
             console.error("Error loading levels:", error);
+            if (levelInputs.list) levelInputs.list.innerHTML = '<li style="padding:10px; color:#ef4444;">Gagal memuat.</li>';
             return;
         }
 
-        let lvlList = savedLevels.map(l => l.nama);
+        const lvlList = (savedLevels || []).map(l => l.nama);
 
         // Populate Selectors (Both Main and Edit Modal)
         const selectors = [levelInputs.selector, levelInputs.editSelector];
         selectors.forEach(sel => {
             if (!sel) return;
-            sel.innerHTML = '<option value="">-- Pilih Level Jabatan Atasan --</option>';
+            sel.innerHTML = '<option value="">-- Pilih Jabatan Atasan --</option>';
             lvlList.forEach(lvl => {
                 const option = document.createElement('option');
                 option.value = lvl;
@@ -229,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate List in Manager
         if (levelInputs.list) {
             levelInputs.list.innerHTML = '';
-            lvlList.forEach((lvl, index) => {
+            lvlList.forEach((lvl) => {
                 const li = document.createElement('li');
                 li.style.padding = '10px';
                 li.style.borderBottom = '1px solid #eee';
@@ -242,6 +344,54 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="btn-danger btn-sm" onclick="deleteLevel('${lvl}')" style="padding: 5px 10px; font-size: 0.8rem;">Hapus</button>
                 `;
                 levelInputs.list.appendChild(li);
+            });
+        }
+    }
+
+    async function loadBidangs() {
+        if (bidangInputs.list) {
+            bidangInputs.list.innerHTML = '<li style="padding: 10px; border-bottom: 1px solid #eee; color: gray;">Memuat...</li>';
+        }
+
+        const { data: savedBidangs, error } = await supabase.from('master_bidangs').select('nama');
+
+        if (error) {
+            console.error("Error loading bidangs:", error);
+            populateBidangUI(defaultBidangs);
+            return;
+        }
+
+        populateBidangUI((savedBidangs || []).map(b => b.nama));
+    }
+
+    function populateBidangUI(bdgList) {
+        // Populate Selector for Main Form
+        if (bidangInputs.selector) {
+            bidangInputs.selector.innerHTML = '<option value="">-- Pilih Bidang / Bagian --</option>';
+            bdgList.forEach(bdg => {
+                const option = document.createElement('option');
+                option.value = bdg;
+                option.textContent = bdg;
+                bidangInputs.selector.appendChild(option);
+            });
+        }
+
+        // Populate List in Manager
+        if (bidangInputs.list) {
+            bidangInputs.list.innerHTML = '';
+            bdgList.forEach((bdg) => {
+                const li = document.createElement('li');
+                li.style.padding = '10px';
+                li.style.borderBottom = '1px solid #eee';
+                li.style.display = 'flex';
+                li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
+
+                li.innerHTML = `
+                    <span>${bdg}</span>
+                    <button class="btn-danger btn-sm" onclick="deleteBidang('${bdg}')" style="padding: 5px 10px; font-size: 0.8rem;">Hapus</button>
+                `;
+                bidangInputs.list.appendChild(li);
             });
         }
     }
@@ -299,7 +449,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Expose delete function to window
+    // Expose delete and edit functions to window
+    window.editJabatan = function (nama, uraian) {
+        if (jabatanInputs.newInput) jabatanInputs.newInput.value = nama;
+        if (jabatanInputs.newUraian) jabatanInputs.newUraian.value = uraian;
+        // Scroll to input form
+        jabatanInputs.newInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        jabatanInputs.newInput.focus();
+        showNotification('Data dimuat ke form edit.', 'info');
+    };
+
     window.deleteJabatan = async function (nama) {
         const confirmed = await showConfirm('Hapus Jabatan?', 'Jabatan ini akan dihapus dari database.', 'Hapus');
         if (confirmed) {
@@ -314,31 +473,85 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteLevel = async function (nama) {
-        const confirmed = await showConfirm('Hapus Level Atasan?', 'Level ini akan dihapus dari database.', 'Hapus');
+        const confirmed = await showConfirm('Hapus Jabatan Atasan?', 'Jabatan Atasan ini akan dihapus dari database.', 'Hapus');
         if (confirmed) {
             const { error } = await supabase.from('master_levels').delete().eq('nama', nama);
             if (!error) {
                 loadLevels();
-                showNotification('Level Atasan berhasil dihapus!', 'success');
+                showNotification('Jabatan Atasan berhasil dihapus!', 'success');
             } else {
-                alert("Gagal menghapus level dari Supabase.");
+                alert("Gagal menghapus jabatan dari Supabase.");
             }
         }
     };
 
-    jabatanInputs.addBtn.addEventListener('click', async () => {
-        const newVal = jabatanInputs.newInput.value.trim();
-        if (newVal) {
-            const { error } = await supabase.from('master_jabatans').insert({ nama: newVal });
+    window.deleteBidang = async function (nama) {
+        const confirmed = await showConfirm('Hapus Bidang?', 'Bidang ini akan dihapus dari database.', 'Hapus');
+        if (confirmed) {
+            const { error } = await supabase.from('master_bidangs').delete().eq('nama', nama);
             if (!error) {
-                jabatanInputs.newInput.value = '';
-                loadJabatans();
-                showNotification('Jabatan berhasil ditambahkan!', 'success');
+                loadBidangs();
+                showNotification('Bidang berhasil dihapus!', 'success');
             } else {
-                showNotification('Gagal menambahkan jabatan atau jabatan sudah ada.', 'error');
+                alert("Gagal menghapus bidang dari Supabase.");
             }
         }
-    });
+    };
+
+    if (jabatanInputs.addBtn) {
+        jabatanInputs.addBtn.addEventListener('click', async () => {
+            const newVal = jabatanInputs.newInput.value.trim();
+            const uraianVal = jabatanInputs.newUraian.value.trim();
+
+            if (!newVal) {
+                showNotification('Harap masukkan nama jabatan pelaksana!', 'error');
+                return;
+            }
+
+            try {
+                // Use maybeSingle to safely check if it exists (returns null if 0 rows, no error)
+                const { data: existing, error: checkError } = await supabase.from('master_jabatans')
+                    .select('nama')
+                    .ilike('nama', newVal)
+                    .maybeSingle();
+
+                if (checkError) throw checkError;
+
+                let saveError;
+                if (existing) {
+                    // Update existing
+                    const { error: updateError } = await supabase.from('master_jabatans')
+                        .update({ uraian_tugas: uraianVal })
+                        .ilike('nama', newVal);
+                    saveError = updateError;
+                } else {
+                    // Insert new
+                    const { error: insertError } = await supabase.from('master_jabatans')
+                        .insert({ nama: newVal, uraian_tugas: uraianVal });
+                    saveError = insertError;
+                }
+
+                if (saveError) {
+                    // Check for specific column error to give user advice
+                    if (saveError.message && saveError.message.includes('uraian_tugas')) {
+                        throw new Error("Gagal: Kolom 'uraian_tugas' tidak ditemukan. Silakan jalankan SQL FIX di Dashboard Supabase untuk mengaktifkan fitur ini.");
+                    }
+                    if (saveError.message && (saveError.message.includes('relation') || saveError.message.includes('does not exist'))) {
+                        throw new Error("Gagal: Tabel 'master_jabatans' belum ada. Silakan buat tabel di Supabase.");
+                    }
+                    throw saveError;
+                }
+
+                jabatanInputs.newInput.value = '';
+                jabatanInputs.newUraian.value = '';
+                await loadJabatans();
+                showNotification('Jabatan Pelaksana & Uraian Berhasil Disimpan!', 'success');
+            } catch (err) {
+                console.error("Save Error:", err);
+                showNotification(err.message || 'Gagal menyimpan data ke Database', 'error');
+            }
+        });
+    }
 
     if (levelInputs.addBtn) {
         levelInputs.addBtn.addEventListener('click', async () => {
@@ -348,35 +561,268 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!error) {
                     levelInputs.newInput.value = '';
                     loadLevels();
-                    showNotification('Level Atasan berhasil ditambahkan!', 'success');
+                    showNotification('Jabatan Atasan berhasil ditambahkan!', 'success');
                 } else {
-                    showNotification('Gagal menambahkan level atau level sudah ada.', 'error');
+                    showNotification('Gagal menambahkan jabatan atau data sudah ada.', 'error');
                 }
             }
         });
     }
 
-    // Initial Load
-    loadJabatans();
-    loadLevels();
+    if (bidangInputs.addBtn) {
+        bidangInputs.addBtn.addEventListener('click', async () => {
+            const newVal = bidangInputs.newInput.value.trim();
+            if (newVal) {
+                const { error } = await supabase.from('master_bidangs').insert({ nama: newVal });
+                if (!error) {
+                    bidangInputs.newInput.value = '';
+                    loadBidangs();
+                    showNotification('Bidang berhasil ditambahkan!', 'success');
+                } else {
+                    showNotification('Gagal menambahkan bidang atau bidang sudah ada.', 'error');
+                }
+            }
+        });
+    }
 
+    // --- GEMINI AI INTEGRATION ---
+    const geminiConfig = {
+        keyInput: document.getElementById('geminiKey'),
+        saveBtn: document.getElementById('saveAiKeyBtn'),
+        // Set the user provided key as the initial value or fallback
+        getStoredKey: () => localStorage.getItem('gemini_api_key') || "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k"
+    };
+
+    if (geminiConfig.saveBtn) {
+        // Load existing key or the default user key
+        const currentKey = geminiConfig.getStoredKey();
+        geminiConfig.keyInput.value = currentKey;
+
+        // If it's the default key and not in localStorage yet, we could save it, 
+        // but getStoredKey already handles the fallback.
+
+        geminiConfig.saveBtn.addEventListener('click', () => {
+            const key = geminiConfig.keyInput.value.trim();
+            if (key) {
+                localStorage.setItem('gemini_api_key', key);
+                showNotification('Gemini API Key berhasil disimpan secara lokal!', 'success');
+            } else {
+                localStorage.removeItem('gemini_api_key');
+                showNotification('API Key dihapus. Sistem kembali ke mode standar.', 'info');
+            }
+        });
+    }
+
+    async function callGeminiAI(jabatan, bidang, atasanRhk) {
+        const apiKey = geminiConfig.getStoredKey();
+        if (!apiKey) return null;
+
+        // Use the manual edit from "Uraian Tugas Singkat" box in the form
+        const uraianContext = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
+
+        const prompt = `Tuliskan SATU KALIMAT Rencana Hasil Kerja (RHK) untuk pegawai:
+        - JABATAN: "${jabatan}"
+        - BIDANG: "${bidang}"
+        ${uraianContext ? `- KONTEKS TUGAS/URAIAN: "${uraianContext}"` : ""}
+        
+        RHK ini HARUS mendongkrak/mendukung RHK ATASAN berikut: "${atasanRhk}". 
+        
+        SYARAT UTAMA: 
+        1. Gunakan standar bahasa birokrasi ASN (Menpan-RB).
+        2. Harus diawali dengan kata benda hasil (contoh: Terlaksananya, Tersusunnya, Terkelolanya, Terwujudnya).
+        3. Kalimat RHK HARUS SESUAI dengan Konteks Tugas/Uraian yang diberikan di atas.
+        4. Kalimat harus unik, profesional, dan linier.
+        5. JANGAN berikan teks pengantar, HANYA kalimat RHK saja.`;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+
+            const data = await response.json();
+            if (data.candidates && data.candidates[0].content.parts[0].text) {
+                return data.candidates[0].content.parts[0].text.trim().replace(/\*/g, '');
+            }
+            return null;
+        } catch (error) {
+            console.error("AI Error:", error);
+            return null;
+        }
+    }
+
+    // --- AUTO-GENERATE RHK BAWAHAN LOGIC ---
+    function formulateBawahanRhk(atasanText, bidangText = "") {
+        if (!atasanText) return "";
+        let text = atasanText.trim();
+        const lower = text.toLowerCase();
+        let result = "";
+
+        // Standard Menpan Patterns
+        if (lower.startsWith('meningkatnya')) {
+            result = "Terlaksananya dukungan terhadap " + text.charAt(0).toLowerCase() + text.slice(1);
+        } else if (lower.startsWith('tersusunnya')) {
+            result = "Terlaksananya penyusunan " + text.charAt(0).toLowerCase() + text.slice(1);
+        } else if (lower.startsWith('terkelolanya')) {
+            result = "Terlaksananya pengelolaan " + text.charAt(0).toLowerCase() + text.slice(1);
+        } else if (lower.startsWith('terwujudnya')) {
+            result = "Terlaksananya kontribusi terhadap " + text.charAt(0).toLowerCase() + text.slice(1);
+        } else {
+            result = "Terlaksananya " + text;
+        }
+
+        // Add Bidang context if available
+        if (bidangText && bidangText.trim() !== "" && !result.toLowerCase().includes(bidangText.toLowerCase())) {
+            result += " pada " + bidangText;
+        }
+
+        return result;
+    }
+
+    const syncRhkBtn = document.getElementById('syncRhkBtn');
+    if (syncRhkBtn) {
+        syncRhkBtn.addEventListener('click', async () => {
+            const atasanVal = inputs.rhkAtasan.value;
+            const bidangVal = inputs.bidang.value;
+            const jabatanVal = inputs.jabatan.value;
+
+            if (!atasanVal) {
+                showNotification('Harap isi RHK Atasan terlebih dahulu!', 'error');
+                return;
+            }
+
+            const apiKey = geminiConfig.getStoredKey();
+            if (apiKey) {
+                syncRhkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI Sedang Berpikir...';
+                syncRhkBtn.disabled = true;
+
+                const aiResult = await callGeminiAI(jabatanVal, bidangVal, atasanVal);
+
+                if (aiResult) {
+                    inputs.rhkBawahan.value = aiResult;
+                    showNotification('Gemini AI berhasil merumuskan RHK Unik untuk Anda!', 'success');
+                } else {
+                    inputs.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
+                    showNotification('Koneksi AI Gagal. Menggunakan rumusan standar.', 'error');
+                }
+
+                syncRhkBtn.innerHTML = '<i class="fas fa-magic"></i> 💡 Buat RHK Saya Berdasarkan Atasan';
+                syncRhkBtn.disabled = false;
+            } else {
+                inputs.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
+                showNotification('Kalimat RHK dirumuskan secara otomatis (Mode Standar).', 'success');
+            }
+        });
+    }
+
+    const editSyncRhkBtn = document.getElementById('editSyncRhkBtn');
+    if (editSyncRhkBtn) {
+        editSyncRhkBtn.addEventListener('click', async () => {
+            const atasanVal = editModal.rhk.value;
+            const bidangVal = editModal.bidang.value;
+            const jabatanVal = editModal.jabatan.value;
+
+            if (!atasanVal) {
+                showNotification('Harap isi RHK Atasan terlebih dahulu!', 'error');
+                return;
+            }
+
+            const apiKey = geminiConfig.getStoredKey();
+            if (apiKey) {
+                editSyncRhkBtn.disabled = true;
+                const aiResult = await callGeminiAI(jabatanVal, bidangVal, atasanVal);
+                if (aiResult) {
+                    editModal.rhkBawahan.value = aiResult;
+                    showNotification('AI memperbarui RHK untuk Anda!', 'success');
+                } else {
+                    editModal.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
+                }
+                editSyncRhkBtn.disabled = false;
+            } else {
+                editModal.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
+                showNotification('Kalimat RHK Edit telah dirumuskan secara standar!', 'success');
+            }
+
+            // Sync to state to update preview table if exists
+            if (currentRhkItems.length > 0) {
+                currentRhkItems[0].bawahan = editModal.rhkBawahan.value;
+                generateEditTable(editModal.jabatan.value, currentRhkItems);
+            }
+        });
+    }
 
     // --- SKP LOGIC ---
     const inputs = {
         nama: document.getElementById('namaLengkap'),
         nip: document.getElementById('nip'),
-        jabatan: document.getElementById('jabatanSelector'), // Updated to selector
+        jabatan: document.getElementById('jabatanSelector'),
+        uraianSingkat: document.getElementById('uraianSingkat'),
         opd: document.getElementById('opd'),
+        bidang: document.getElementById('bidangSelector'),
         rhkAtasan: document.getElementById('rhkAtasan'),
+        rhkBawahan: document.getElementById('rhkBawahan'),
         indikatorAtasan: document.getElementById('indikatorAtasan'),
         levelAtasan: document.getElementById('levelAtasanSelector')
     };
+
+    // Initial Load
+    async function initialLoad() {
+        await loadJabatans();
+        await loadLevels();
+        await loadBidangs();
+
+        // Add Dynamic Preloader Listener for main SKP Form (once after load)
+        if (jabatanInputs.selector) {
+            jabatanInputs.selector.addEventListener('change', () => {
+                const selectedOpt = jabatanInputs.selector.options[jabatanInputs.selector.selectedIndex];
+                if (inputs && inputs.uraianSingkat) {
+                    const uraian = selectedOpt && selectedOpt.dataset ? (selectedOpt.dataset.uraian || "") : "";
+                    inputs.uraianSingkat.value = uraian;
+
+                    if (uraian) {
+                        inputs.uraianSingkat.placeholder = "Uraian tugas berhasil dimuat.";
+                        // Add a small animation effect to highlight the change
+                        inputs.uraianSingkat.style.backgroundColor = "#f0fdf4";
+                        setTimeout(() => {
+                            inputs.uraianSingkat.style.backgroundColor = "#f8fafc";
+                        }, 1000);
+                    } else {
+                        inputs.uraianSingkat.placeholder = "Silakan ketik uraian tugas singkat...";
+                    }
+                }
+            });
+        }
+
+        // Add Auto-fill Listener for Manager
+        if (jabatanInputs.newInput && jabatanInputs.newUraian) {
+            jabatanInputs.newInput.addEventListener('input', async () => {
+                const currentVal = jabatanInputs.newInput.value.trim();
+                if (!currentVal) return;
+
+                // Use limit(1) instead of single() to avoid throwing errors on empty results
+                const { data, error } = await supabase.from('master_jabatans')
+                    .select('uraian_tugas')
+                    .ilike('nama', currentVal)
+                    .limit(1);
+
+                if (data && data.length > 0) {
+                    jabatanInputs.newUraian.value = data[0].uraian_tugas || "";
+                }
+            });
+        }
+    }
+
+    initialLoad();
 
     const printSpans = {
         nama: document.getElementById('printNama'),
         nip: document.getElementById('printNip'),
         jabatan: document.getElementById('printJabatan'),
-        opd: document.getElementById('printOpd')
+        opd: document.getElementById('printOpd'),
+        bidang: document.getElementById('printBidang')
     };
 
     const buttons = {
@@ -391,6 +837,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const editNotice = document.getElementById('edit-notice');
 
     let currentEditId = null;
+    let currentActiveNip = "";
+
+    // --- AUTO-CLEAR ON NIP CHANGE (Prevent session data leakage) ---
+    inputs.nip.addEventListener('change', () => {
+        const val = inputs.nip.value.trim();
+        if (currentActiveNip && val !== currentActiveNip && currentRhkItems.length > 0) {
+            if (confirm("Identitas NIP berubah. Kosongkan tabel RHK agar tidak tercampur dengan data pegawai sebelumnya?")) {
+                resetAppForm();
+            }
+        }
+        currentActiveNip = val;
+    });
 
     // --- AI AUTO-SUGGEST HANDLER ---
     const suggestBtn = document.getElementById('suggestBtn');
@@ -420,6 +878,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (matched) {
                 inputs.rhkAtasan.value = matched.atasan.rhk;
                 inputs.indikatorAtasan.value = matched.atasan.indikator;
+
+                // Also suggest a customized Bawahan RHK if matched from data
+                if (matched.bawahan && matched.bawahan.rhk) {
+                    inputs.rhkBawahan.value = matched.bawahan.rhk;
+                }
 
                 // --- LINEAR LEVEL MAPPING ---
                 const jLower = userJabatan.toLowerCase();
@@ -454,6 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
     buttons.generate.addEventListener('click', () => {
         const userJabatan = inputs.jabatan.value.trim();
         const userRhkAtasan = inputs.rhkAtasan.value.trim();
+        const userRhkBawahan = inputs.rhkBawahan.value.trim();
         const userIndikatorAtasan = inputs.indikatorAtasan.value.trim();
         const userLevelAtasan = inputs.levelAtasan.value;
 
@@ -481,17 +945,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 setTimeout(() => {
                     loadingOverlay.style.display = 'none';
-                    executeGenerate(userJabatan, userRhkAtasan, userIndikatorAtasan, userLevelAtasan);
+                    executeGenerate(userJabatan, userRhkAtasan, userRhkBawahan, userIndikatorAtasan, userLevelAtasan);
 
                     // Clear RHK inputs after adding to table to prompt user for second RHK
                     inputs.rhkAtasan.value = '';
+                    inputs.rhkBawahan.value = '';
                     inputs.indikatorAtasan.value = '';
                 }, 1000);
             }, 1500);
         }, 1500);
     });
 
-    function executeGenerate(userJabatan, userRhkAtasan, userIndikatorAtasan, userLevelAtasan) {
+    function executeGenerate(userJabatan, userRhkAtasan, userRhkBawahan, userIndikatorAtasan, userLevelAtasan) {
         // Basic Validation
         if (!userJabatan) {
             showNotification('Harap pilih Jabatan terlebih dahulu!', 'error');
@@ -502,22 +967,40 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- DUPLICATE CHECK WITHIN CURRENT SESSION ---
+        const isDuplicate = currentRhkItems.some(item =>
+            item.atasan === userRhkAtasan &&
+            item.indikator === userIndikatorAtasan &&
+            item.bawahan === userRhkBawahan
+        );
+
+        if (isDuplicate) {
+            showNotification('RHK ini sudah ada dalam daftar tabel!', 'error');
+            return;
+        }
+
         // Add to state
         currentRhkItems.push({
             atasan: userRhkAtasan,
+            bawahan: userRhkBawahan,
             indikator: userIndikatorAtasan,
-            levelAtasan: userLevelAtasan
+            levelAtasan: userLevelAtasan,
+            bidang: inputs.bidang.value // Store bidang per item
         });
 
         // Update Title & Print Header
-        jabatanTitle.textContent = userJabatan.toUpperCase();
+        jabatanTitle.innerHTML = `${userJabatan.toUpperCase()} <br> <span style="font-size: 0.8em; color: #475569;">(${inputs.bidang.value.toUpperCase()})</span>`;
+        currentActiveNip = inputs.nip.value; // Lock current NIP
+
+        // Sync Print Spans
         printSpans.nama.textContent = inputs.nama.value;
         printSpans.nip.textContent = inputs.nip.value;
         printSpans.jabatan.textContent = userJabatan;
         printSpans.opd.textContent = inputs.opd.value;
+        printSpans.bidang.textContent = inputs.bidang.value;
 
         // Render whole list
-        generateGenericTable(userJabatan, currentRhkItems, tbody, false);
+        generateGenericTable(userJabatan, inputs.bidang.value, currentRhkItems, tbody, false);
         renderMiniRhkList();
         showNotification('RHK Berhasil Ditambahkan ke Tabel!', 'success');
     }
@@ -563,8 +1046,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMiniRhkList();
         // Regenerate main table
         const userJabatan = inputs.jabatan.value;
+        const userBidang = inputs.bidang.value;
         if (userJabatan) {
-            generateGenericTable(userJabatan, currentRhkItems, tbody, false);
+            generateGenericTable(userJabatan, userBidang, currentRhkItems, tbody, false);
         }
     };
 
@@ -576,7 +1060,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 nama: inputs.nama.value,
                 nip: inputs.nip.value,
                 jabatan: inputs.jabatan.value,
-                opd: inputs.opd.value
+                opd: inputs.opd.value,
+                bidang: inputs.bidang.value
             },
             periode: document.getElementById('periodeTahun').value || new Date().getFullYear().toString(),
             timestamp_iso: new Date().toISOString()
@@ -601,11 +1086,37 @@ document.addEventListener('DOMContentLoaded', () => {
             loadHistory();
             currentEditId = null;
             if (editNotice) editNotice.style.display = 'none';
+
+            // --- AUTO RESET AFTER SAVE ---
+            resetAppForm();
         } catch (err) {
             console.error(err);
             alert("Gagal menyimpan data ke Supabase: " + err.message);
         }
     });
+
+    function resetAppForm() {
+        // 1. Clear state
+        currentRhkItems = [];
+        currentEditId = null;
+
+        // 2. Clear all form inputs
+        Object.values(inputs).forEach(input => {
+            if (input.tagName === 'SELECT') input.selectedIndex = 0;
+            else input.value = '';
+        });
+
+        // 3. Reset Table & List
+        if (tbody) tbody.innerHTML = '';
+        if (jabatanTitle) jabatanTitle.textContent = 'JABATAN';
+        renderMiniRhkList();
+
+        // 4. Hide notices
+        if (editNotice) editNotice.style.display = 'none';
+
+        // 5. Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     // PRINT BUTTON
     buttons.print.addEventListener('click', () => {
@@ -732,6 +1243,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div>
                     <p><strong>Nama:</strong> ${item.pegawai.nama}</p>
                     <p><strong>NIP:</strong> ${item.pegawai.nip}</p>
+                    <p><strong>Bidang:</strong> ${item.pegawai.bidang || "-"}</p>
                 </div>
                 <div style="text-align:right;">
                      <p><strong>Jabatan:</strong> ${item.pegawai.jabatan}</p>
@@ -747,19 +1259,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     el.style.cursor = 'default';
                 });
             } else {
-                generateViewTable(item.pegawai.jabatan, item.rhk_items || []);
+                generateViewTable(item.pegawai.jabatan, item.pegawai.bidang, item.rhk_items || []);
             }
 
             viewModal.overlay.classList.add('active');
         }
     }
 
-    function generateViewTable(jabatan, rhkItems) {
-        generateGenericTable(jabatan, rhkItems, viewModal.tableBody, false);
+    function generateViewTable(jabatan, bidang, rhkItems) {
+        generateGenericTable(jabatan, bidang, rhkItems, viewModal.tableBody, false);
     }
 
     // Generic generator that can be used by both (Edit gets contentEditable=true, View gets false)
-    function generateGenericTable(jabatan, rhkItems, targetTbody, isEditable) {
+    function generateGenericTable(jabatan, bidang, rhkItems, targetTbody, isEditable) {
         // rhkItems can be a single item or an array
         const items = Array.isArray(rhkItems) ? rhkItems : [rhkItems];
 
@@ -802,6 +1314,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     const bawahan = { ...templateData.bawahan };
                     bawahan.level = jabatan;
 
+                    // --- DYNAMIC RHK LOGIC (STRICT) ---
+                    // Priority 1: Use specific Bawahan RHK if provided
+                    if (item.bawahan && item.bawahan.trim() !== "") {
+                        bawahan.rhk = item.bawahan;
+                    }
+                    // Priority 2: Use Atasan RHK transformation (Magic)
+                    else if (item.atasan && item.atasan.trim() !== "") {
+                        bawahan.rhk = formulateBawahanRhk(item.atasan);
+                    }
+                    // Priority 3: Final fallback to template only if inputs are empty
+                    else {
+                        bawahan.rhk = templateData.bawahan.rhk;
+                    }
+
+                    // ENSURE Atasan RHK is strictly what user provided in the list
+                    const finalAtasanRhk = item.atasan || templateData.atasan.rhk;
+
                     if (templateData.bawahan.sub_periods && templateData.bawahan.sub_periods[index]) {
                         const sub = templateData.bawahan.sub_periods[index];
                         bawahan.rencana_aksi = sub.rencana;
@@ -814,20 +1343,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         atasan: {
                             ...templateData.atasan,
                             level: item.levelAtasan || templateData.atasan.level,
-                            rhk: item.atasan,
-                            indikator: item.indikator
+                            rhk: finalAtasanRhk,
+                            indikator: item.indikator || templateData.atasan.indikator
                         },
                         bawahan: bawahan
                     };
 
                     // Render
-                    renderRowToGeneric(currentData, jabatan, itemIdx + 1, color, targetTbody, isEditable);
+                    renderRowToGeneric(currentData, jabatan, bidang, itemIdx + 1, color, targetTbody, isEditable);
                 });
             });
         }
     }
 
-    function renderRowToGeneric(data, userJabatan, no, bgColor, targetTbody, isEditable) {
+    function renderRowToGeneric(data, userJabatan, userBidang, no, bgColor, targetTbody, isEditable) {
         const aspectCount = data.bawahan.aspek.length;
         data.bawahan.aspek.forEach((aspek, index) => {
             const tr = document.createElement('tr');
@@ -854,6 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 add(data.atasan.rhk, aspectCount, "bg-atasan");
                 add(data.atasan.indikator, aspectCount, "bg-atasan");
                 add(data.atasan.intervensi, aspectCount, "bg-atasan");
+                add(userBidang || "-", aspectCount, "bg-bawahan");
                 add(userJabatan, aspectCount, "bg-bawahan");
                 add(data.bawahan.rhk, aspectCount, "bg-bawahan");
                 add(aspek.jenis, 1, "bg-bawahan");
@@ -967,8 +1497,10 @@ document.addEventListener('DOMContentLoaded', () => {
         nip: document.getElementById('editNip'),
         jabatan: document.getElementById('editJabatan'),
         opd: document.getElementById('editOpd'),
+        bidang: document.getElementById('editBidang'),
         levelAtasan: document.getElementById('editLevelAtasan'),
         rhk: document.getElementById('editRhk'),
+        rhkBawahan: document.getElementById('editRhkBawahan'),
         indikator: document.getElementById('editIndikator'),
         saveBtn: document.getElementById('saveEditBtn'),
         cancelBtn: document.getElementById('cancelEditBtn'),
@@ -977,8 +1509,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
-    function generateEditTable(jabatan, rhkItems) {
-        generateGenericTable(jabatan, rhkItems, editModal.tableBody, true);
+    function generateEditTable(jabatan, bidang, rhkItems) {
+        generateGenericTable(jabatan, bidang, rhkItems, editModal.tableBody, true);
     }
 
     // Live Update on Input (Removed loop to avoid overwriting edits in table)
@@ -1013,17 +1545,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // If user edits "Indikator" cell -> update Indikator Input.
 
     // Live Update on Input
-    [editModal.rhk, editModal.indikator, editModal.levelAtasan].forEach(input => {
+    [editModal.rhk, editModal.rhkBawahan, editModal.indikator, editModal.levelAtasan].forEach(input => {
         if (!input) return;
         ['input', 'change', 'keyup'].forEach(evt => {
             input.addEventListener(evt, () => {
                 // Sync back to first item for live preview while editing top inputs
                 if (currentRhkItems.length > 0) {
                     currentRhkItems[0].atasan = editModal.rhk.value;
+                    currentRhkItems[0].bawahan = editModal.rhkBawahan.value;
                     currentRhkItems[0].indikator = editModal.indikator.value;
                     currentRhkItems[0].levelAtasan = editModal.levelAtasan.value;
                 }
-                generateEditTable(editModal.jabatan.value, currentRhkItems);
+                generateEditTable(editModal.jabatan.value, editModal.bidang.value, currentRhkItems);
             });
         });
     });
@@ -1039,6 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addRhkEditBtn) {
         addRhkEditBtn.addEventListener('click', () => {
             const rhkVal = editModal.rhk.value.trim();
+            const rhkBawahanVal = editModal.rhkBawahan.value.trim();
             const indVal = editModal.indikator.value.trim();
             const lvlVal = editModal.levelAtasan.value;
 
@@ -1049,16 +1583,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             currentRhkItems.push({
                 atasan: rhkVal,
+                bawahan: rhkBawahanVal,
                 indikator: indVal,
                 levelAtasan: lvlVal
             });
 
             // Reset fields
             editModal.rhk.value = '';
+            editModal.rhkBawahan.value = '';
             editModal.indikator.value = '';
 
             renderEditMiniRhkList();
-            generateEditTable(editModal.jabatan.value, currentRhkItems);
+            generateEditTable(editModal.jabatan.value, editModal.bidang.value, currentRhkItems);
             showNotification('RHK ditambahkan ke daftar edit!', 'success');
         });
     }
@@ -1095,7 +1631,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.removeEditRhk = function (index) {
         currentRhkItems.splice(index, 1);
         renderEditMiniRhkList();
-        generateEditTable(editModal.jabatan.value, currentRhkItems);
+        generateEditTable(editModal.jabatan.value, editModal.bidang.value, currentRhkItems);
     };
 
     editModal.saveBtn.addEventListener('click', async () => {
@@ -1105,7 +1641,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 nama: editModal.nama.value,
                 nip: editModal.nip.value,
                 jabatan: editModal.jabatan.value,
-                opd: editModal.opd.value
+                opd: editModal.opd.value,
+                bidang: editModal.bidang.value
             },
             rhk_items: [...currentRhkItems],
             custom_table_html: editModal.tableBody.innerHTML
@@ -1132,11 +1669,13 @@ document.addEventListener('DOMContentLoaded', () => {
             editModal.nip.value = item.pegawai.nip;
             editModal.jabatan.value = item.pegawai.jabatan;
             editModal.opd.value = item.pegawai.opd;
+            editModal.bidang.value = item.pegawai.bidang || "";
 
             currentRhkItems = item.rhk_items ? [...item.rhk_items] : [];
 
             if (currentRhkItems.length > 0) {
                 editModal.rhk.value = currentRhkItems[0].atasan;
+                editModal.rhkBawahan.value = currentRhkItems[0].bawahan || "";
                 editModal.indikator.value = currentRhkItems[0].indikator;
                 editModal.levelAtasan.value = currentRhkItems[0].levelAtasan || "";
             }
@@ -1144,7 +1683,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item.custom_table_html) {
                 editModal.tableBody.innerHTML = item.custom_table_html;
             } else {
-                generateEditTable(item.pegawai.jabatan, currentRhkItems);
+                generateEditTable(item.pegawai.jabatan, item.pegawai.bidang, currentRhkItems);
             }
 
             renderEditMiniRhkList();

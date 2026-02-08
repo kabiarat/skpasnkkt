@@ -159,19 +159,26 @@
                         <input type="text" id="nip" placeholder="Masukkan NIP...">
                     </div>
                     <div class="form-group">
-                        <label for="jabatan">Jabatan</label>
-                        <!-- Changed to Select + Datalist or just Select for stricter control? User asked for "pilihan". -->
-                        <!-- Let's use a datalist so they can still type custom ones, or a select if they want strict list. -->
-                        <!-- "maka akan anda tampilkan pilihan pada jabatan" implies a dropdown. -->
-                        <select id="jabatanSelector" style="width: 100%;">
-                            <option value="">-- Pilih Jabatan --</option>
-                            <option value="Penata Layanan Operasional">Penata Layanan Operasional</option>
-                        </select>
-                        <!-- Hidden input to store value if needed, or just use selector value -->
+                        <label for="opd">Unit Kerja / OPD</label>
+                        <input type="text" id="opd" placeholder="Contoh: Dinas Komunikasi dan Informatika">
                     </div>
                     <div class="form-group">
-                        <label for="opd">Unit Kerja</label>
-                        <input type="text" id="opd" placeholder="Contoh: Dinas Komunikasi dan Informatika">
+                        <label for="uraianSingkat">Uraian Tugas Singkat (Sesuai Anjab)</label>
+                        <textarea id="uraianSingkat" rows="2" placeholder="Pilih jabatan untuk memuat uraian tugas..."
+                            style="width: 100%; font-size: 0.9rem; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f8fafc; color: #1e293b;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="jabatan">Jabatan Anda (Staff / Pelaksana)</label>
+                        <select id="jabatanSelector" style="width: 100%;">
+                            <option value="">-- Pilih Jabatan --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bidang">Bidang / Bagian</label>
+                        <select id="bidangSelector"
+                            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #fff;">
+                            <option value="">-- Pilih Bidang / Bagian --</option>
+                        </select>
                     </div>
                 </div>
 
@@ -192,7 +199,7 @@
                 <!-- Data Kinerja -->
                 <div class="section-title mt-4">Data RHK Atasan</div>
                 <div class="form-group">
-                    <label for="levelAtasanSelector">Level Jabatan Atasan</label>
+                    <label for="levelAtasanSelector">Jabatan Atasan Penilai</label>
                     <select id="levelAtasanSelector"
                         style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #fff;">
                         <option value="">-- Pilih Level Jabatan Atasan --</option>
@@ -240,6 +247,17 @@
                     <label for="indikatorAtasan">Indikator Kinerja Atasan</label>
                     <textarea id="indikatorAtasan" rows="2"
                         placeholder="Masukkan Indikator Kinerja Atasan..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="rhkBawahan">RHK Anda (Pegawai)</label>
+                    <div style="display: flex; gap: 8px; flex-direction: column;">
+                        <textarea id="rhkBawahan" rows="2"
+                            placeholder="Masukkan RHK Anda (Atau gunakan tombol di bawah untuk otomatis)"></textarea>
+                        <button type="button" id="syncRhkBtn" class="btn-secondary"
+                            style="background: #fdf2f8; color: #be185d; border: 1px dashed #be185d; padding: 5px 10px; font-size: 0.8rem; border-radius: 5px; align-self: flex-start; cursor: pointer;">
+                            <i class="fas fa-magic"></i> 💡 Buat RHK Saya Berdasarkan Atasan
+                        </button>
+                    </div>
                 </div>
 
                 <!-- ADDED RHK LIST -->
@@ -292,6 +310,10 @@
                             <td style="border:none;">: <span id="printOpd"></span></td>
                         </tr>
                         <tr>
+                            <td style="width: 150px; border:none;">Bidang / Bagian</td>
+                            <td style="border:none;">: <span id="printBidang"></span></td>
+                        </tr>
+                        <tr>
                             <td style="width: 150px; border:none;">Periode</td>
                             <td style="border:none;">: <span id="printPeriode"></span></td>
                         </tr>
@@ -319,7 +341,7 @@
                             <tr>
                                 <th rowspan="3" class="header-no">NO</th>
                                 <th colspan="4" class="header-atasan-main">RHK ATASAN YANG DI INTERVENSI</th>
-                                <th colspan="14" class="header-bawahan-main">RHK BAWAHAN (<span
+                                <th colspan="15" class="header-bawahan-main">RHK BAWAHAN (<span
                                         id="jabatanTitle">JABATAN PENATA LAYANAN OPERASIONAL</span>)</th>
                             </tr>
                             <tr>
@@ -330,6 +352,7 @@
                                 <th rowspan="2" class="header-atasan-sub">BENTUK INTERVENSI KE BAWAHAN</th>
 
                                 <!-- Bawahan Basic Cols (Rowspan 2) -->
+                                <th rowspan="2" class="header-bawahan-sub">BIDANG</th>
                                 <th rowspan="2" class="header-bawahan-sub">LEVEL JABATAN</th>
                                 <th rowspan="2" class="header-bawahan-sub">RHK</th>
                                 <th rowspan="2" class="header-bawahan-sub">ASPEK</th>
@@ -365,33 +388,65 @@
         <!-- JABATAN SECTION -->
         <section id="jabatan-section" style="display: none;">
             <header>
-                <h1>Daftar Jabatan</h1>
-                <p>Tambah, edit, atau hapus daftar jabatan yang tersedia di form SKP.</p>
+                <h1>Pengaturan Master Data SKP</h1>
+                <p>Kelola daftar pilihan yang akan muncul pada form Buat SKP.</p>
             </header>
 
+            <!-- 1. JABATAN PELAKSANA / STAFF -->
+            <div class="section-title">1. Daftar Jabatan Pelaksana (Staff)</div>
+            <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px;">Kelola jabatan khusus untuk level
+                Staff/Pelaksana beserta uraian tugasnya.</p>
+
             <div class="input-section">
-                <div class="form-group" style="flex-direction: row; gap: 10px; align-items: flex-end;">
-                    <div style="flex-grow: 1;">
-                        <label for="newJabatan">Tambah Jabatan Baru</label>
-                        <input type="text" id="newJabatan" placeholder="Masukkan nama jabatan...">
+                <div class="form-group" style="gap: 15px;">
+                    <div>
+                        <label for="newJabatan">Nama Jabatan Staff (Pelaksana)</label>
+                        <input type="text" id="newJabatan" list="masterJabatanOptions"
+                            placeholder="Contoh: Penata Layanan Operasional...">
+                        <datalist id="masterJabatanOptions"></datalist>
                     </div>
-                    <button id="addJabatanBtn" class="btn-success"><i class="fas fa-plus"></i> Tambah</button>
+                    <div style="margin-top: 10px;">
+                        <label for="newUraian">Uraian Tugas (Berdasarkan ANJAB/SK)</label>
+                        <textarea id="newUraian" rows="4"
+                            placeholder="Masukkan poin-poin uraian tugas jabatan ini..."></textarea>
+                    </div>
+                    <button id="addJabatanBtn" class="btn-success" style="margin-top: 10px; width: 100%;">
+                        <i class="fas fa-plus"></i> Simpan Jabatan & Uraian Tugas
+                    </button>
                 </div>
             </div>
 
-            <div class="card bg-white p-6">
-                <h3>Daftar Jabatan Tersimpan</h3>
-                <ul id="jabatanList" style="list-style: none; margin-top: 1rem;">
-                    <!-- Populated by JS -->
-                    <li style="padding: 10px; border-bottom: 1px solid #eee; color: gray;">Memuat daftar...</li>
-                </ul>
+            <div class="card bg-white p-6" style="margin-top: 20px; overflow-x: auto;">
+                <h3
+                    style="margin-bottom: 15px; color: var(--primary-color); display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-briefcase"></i> Daftar Jabatan Pelaksana Terdaftar
+                </h3>
+                <table class="mgmt-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">No</th>
+                            <th style="width: 250px;">Nama Jabatan</th>
+                            <th>Uraian Tugas (Anjab)</th>
+                            <th style="width: 100px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jabatanList">
+                        <tr>
+                            <td colspan="4" style="padding: 20px; text-align: center; color: gray;">Memuat daftar
+                                jabatan...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
-            <!-- Management for Level Atasan -->
-            <div class="input-section mt-6">
+            <!-- 2. JABATAN ATASAN (PIMPINAN) -->
+            <div class="section-title mt-6">2. Daftar Jabatan Atasan (Pimpinan)</div>
+            <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px;">Kelola jabatan untuk Atasan Penilai
+                (Contoh: Gubernur, Bupati, Setda, Kepala Dinas).</p>
+            <div class="input-section mt-2">
                 <div class="form-group" style="flex-direction: row; gap: 10px; align-items: flex-end;">
                     <div style="flex-grow: 1;">
-                        <label for="newLevel">Tambah Level Jabatan Atasan Baru</label>
+                        <label for="newLevel">Nama Jabatan Atasan (Gubernur s/d Kepala Dinas)</label>
                         <input type="text" id="newLevel" placeholder="Contoh: Kepala Puskesmas...">
                     </div>
                     <button id="addLevelBtn" class="btn-success"><i class="fas fa-plus"></i> Tambah</button>
@@ -399,8 +454,48 @@
             </div>
 
             <div class="card bg-white p-6">
-                <h3>Daftar Level Jabatan Atasan Tersimpan</h3>
+                <h3>Daftar Jabatan Atasan Tersimpan</h3>
                 <ul id="levelList" style="list-style: none; margin-top: 1rem;">
+                    <!-- Populated by JS -->
+                    <li style="padding: 10px; border-bottom: 1px solid #eee; color: gray;">Memuat daftar...</li>
+                </ul>
+            </div>
+
+            <!-- 3. BIDANG / BAGIAN -->
+            <div class="section-title mt-6">3. Daftar Bidang / Bagian</div>
+            <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px;">Kelola daftar Bidang atau Bagian yang
+                tersedia di organisasi Anda.</p>
+            <div class="input-section mt-2">
+                <!-- Gemini AI Configuration -->
+                <div class="card"
+                    style="background: #fff7ed; border: 1px solid #ffedd5; margin-bottom: 20px; padding: 15px;">
+                    <h4 style="color: #9a3412; margin-bottom: 10px;"><i class="fas fa-robot"></i> Konfigurasi Gemini AI
+                    </h4>
+                    <div class="form-group">
+                        <label for="geminiKey">Gemini API Key</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="password" id="geminiKey" placeholder="Masukkan API Key Gemini Anda..."
+                                style="flex: 1;">
+                            <button id="saveAiKeyBtn" class="btn-primary"
+                                style="background: #ea580c; border:none; padding: 10px 20px;">Simpan Key</button>
+                        </div>
+                        <p style="font-size: 0.75rem; color: #9a3412; margin-top: 5px;">*API Key disimpan secara lokal
+                            di browser Anda. Belum punya? Dapatkan gratis di Google AI Studio.</p>
+                    </div>
+                </div>
+
+                <div class="form-group" style="flex-direction: row; gap: 10px; align-items: flex-end;">
+                    <div style="flex-grow: 1;">
+                        <label for="newBidang">Nama Bidang / Bagian Baru</label>
+                        <input type="text" id="newBidang" placeholder="Contoh: Sekretariat / Bidang Umum...">
+                    </div>
+                    <button id="addBidangBtn" class="btn-success"><i class="fas fa-plus"></i> Simpan Bidang</button>
+                </div>
+            </div>
+
+            <div class="card bg-white p-6">
+                <h3>Daftar Bidang / Bagian Tersimpan</h3>
+                <ul id="bidangList" style="list-style: none; margin-top: 1rem;">
                     <!-- Populated by JS -->
                     <li style="padding: 10px; border-bottom: 1px solid #eee; color: gray;">Memuat daftar...</li>
                 </ul>
@@ -519,7 +614,7 @@
                             <tr>
                                 <th rowspan="3" class="header-no">NO</th>
                                 <th colspan="4" class="header-atasan-main">RHK ATASAN YANG DI INTERVENSI</th>
-                                <th colspan="14" class="header-bawahan-main">RHK BAWAHAN</th>
+                                <th colspan="15" class="header-bawahan-main">RHK BAWAHAN</th>
                             </tr>
                             <tr>
                                 <!-- Atasan Cols -->
@@ -529,6 +624,7 @@
                                 <th rowspan="2" class="header-atasan-sub">BENTUK INTERVENSI KE BAWAHAN</th>
 
                                 <!-- Bawahan Basic Cols -->
+                                <th rowspan="2" class="header-bawahan-sub">BIDANG</th>
                                 <th rowspan="2" class="header-bawahan-sub">LEVEL JABATAN</th>
                                 <th rowspan="2" class="header-bawahan-sub">RHK</th>
                                 <th rowspan="2" class="header-bawahan-sub">ASPEK</th>
@@ -597,6 +693,10 @@
                         <label for="editOpd">Nama OPD</label>
                         <input type="text" id="editOpd">
                     </div>
+                    <div class="form-group">
+                        <label for="editBidang">Bidang / Bagian</label>
+                        <input type="text" id="editBidang">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -643,6 +743,17 @@
                 <div class="form-group">
                     <label for="editRhk">RHK Atasan</label>
                     <textarea id="editRhk" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editRhkBawahan">RHK Anda (Pegawai)</label>
+                    <div style="display: flex; gap: 8px; flex-direction: column;">
+                        <textarea id="editRhkBawahan" rows="2"
+                            placeholder="Klik tombol di bawah untuk otomatisasi kalimat"></textarea>
+                        <button type="button" id="editSyncRhkBtn" class="btn-secondary"
+                            style="background: #fdf2f8; color: #be185d; border: 1px dashed #be185d; padding: 5px 10px; font-size: 0.8rem; border-radius: 5px; align-self: flex-start; cursor: pointer;">
+                            <i class="fas fa-magic"></i> 💡 Auto-Generate Kalimat RHK
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="editIndikator">Indikator Kinerja Atasan</label>
@@ -694,7 +805,7 @@
                                 <tr>
                                     <th rowspan="3" class="header-no">NO</th>
                                     <th colspan="4" class="header-atasan-main">RHK ATASAN YANG DI INTERVENSI</th>
-                                    <th colspan="14" class="header-bawahan-main">RHK BAWAHAN</th>
+                                    <th colspan="15" class="header-bawahan-main">RHK BAWAHAN</th>
                                 </tr>
                                 <tr>
                                     <!-- Atasan Cols -->
@@ -704,6 +815,7 @@
                                     <th rowspan="2" class="header-atasan-sub">BENTUK INTERVENSI KE BAWAHAN</th>
 
                                     <!-- Bawahan Basic Cols -->
+                                    <th rowspan="2" class="header-bawahan-sub">BIDANG</th>
                                     <th rowspan="2" class="header-bawahan-sub">LEVEL JABATAN</th>
                                     <th rowspan="2" class="header-bawahan-sub">RHK</th>
                                     <th rowspan="2" class="header-bawahan-sub">ASPEK</th>
@@ -767,19 +879,20 @@
                         membuat SKP:</p>
                 </div>
                 <ol style="line-height: 1.8; margin-left: 20px; color: #334155; text-align: left;">
-                    <li>Pastikan anda berada di menu <strong>Buat SKP</strong>.</li>
-                    <li>Isi <strong>Data Pegawai</strong> (Nama, NIP, Jabatan, Unit Kerja).</li>
-                    <li>Pilih <strong>Periode Tahun</strong> yang sesuai.</li>
-                    <li>Isi <strong>RHK Atasan</strong> dan <strong>Indikator Kinerja Atasan</strong>.</li>
+                    <li>Pilih <strong>Jabatan</strong> (Sistem akan otomatis memuat <strong>Uraian Tugas</strong>).</li>
+                    <li>Lengkapi data diri (Nama, NIP, Bidang, & Unit Kerja).</li>
+                    <li>Isi <strong>RHK Atasan</strong> yang ingin diintervensi.</li>
                     <li>Klik tombol <span
-                            style="background:var(--primary-color); color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">Generate
-                            SKP</span> untuk melihat hasil tabel.</li>
-                    <li>Jika sudah sesuai, klik <span
-                            style="background:var(--success-color); color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">Simpan
-                            Data</span>.</li>
-                    <li>Untuk mencetak, klik tombol <span
-                            style="background:#0ea5e9; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">Download
-                            PDF / Print</span>.</li>
+                            style="background:linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); color:#7e22ce; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">💡
+                            Buat RHK Saya...</span> untuk merumuskan kalimat secara otomatis menggunakan <strong>Gemini
+                            AI</strong>.</li>
+                    <li>Klik tombol <span
+                            style="background:var(--primary-color); color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Tambahkan
+                            RHK ke Tabel</span> untuk memasukkan hasil ke daftar.</li>
+                    <li>Anda bisa menambah lebih dari satu RHK Atasan ke dalam satu tabel SKP.</li>
+                    <li>Jika sudah lengkap, klik <span
+                            style="background:var(--success-color); color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Simpan
+                            ke Database</span> untuk menyimpan secara permanen.</li>
                 </ol>
                 <div style="margin-top: 20px; text-align: center;">
                     <button id="btnUnderstand" class="btn-primary" style="width: 100%;">Saya Mengerti</button>
