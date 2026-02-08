@@ -647,104 +647,54 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!apiKey) return null;
 
         const uraianContext = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
+        const prompt = atasanRhk ? `Tugas: Buat SKP Menpan-RB (JSON) untuk Jabatan: ${jabatan}, Bidang: ${bidang}, Konteks: ${uraianContext}, RHK Atasan: ${atasanRhk}. JSON format: {rhk, aspek:[{jenis, indikator, target}], sub_periods:[{rencana, target, bukti}]}.` :
+            `Berikan satu kalimat RHK Utama/Atasan untuk Jabatan: ${jabatan} di Bidang: ${bidang}.`;
 
-        // NEW: Advanced Prompt for Full SKP Item Generation (JSON)
-        let prompt = "";
-        if (atasanRhk) {
-            prompt = `Tugas Anda adalah sebagai pakar Analis SDM dan perumus SKP (Sasaran Kinerja Pegawai) berbasis Permenpan-RB.
-            
-            BUATKAN detail SKP untuk pegawai berikut:
-            - JABATAN: "${jabatan}"
-            - BIDANG: "${bidang}"
-            - KONTEKS TUGAS (ANJAB): "${uraianContext}"
-            - RHK ATASAN: "${atasanRhk}"
-            
-            SYARAT UTAMA:
-            1. DILARANG menggunakan kata-kata umum/generic seperti "ATK", "Sarana Prasarana", "Gaji", "Tunjangan" kecuali benar-benar relevan dengan Jabatan di atas.
-            2. Indikator Kinerja Individu HARUS sangat spesifik mencerminkan Jabatan tersebut (contoh: kelaikan mesin, akurasi data sistem, kepuasan pasien, dsb).
-            3. Gunakan bahasa birokrasi ASN yang profesional (Terlaksananya, Tersusunnya, dsb).
-            4. Hasil harus dalam format JSON murni tanpa markdown, tanpa pengantar.
+        // Strategy: Use Gemini 3 as priority if available (Newest Gen)
+        const attempts = [
+            { ver: 'v1beta', mod: 'gemini-3-flash-preview' }, // GENERASI 3 (NEW!)
+            { ver: 'v1beta', mod: 'gemini-2.0-flash' },
+            { ver: 'v1beta', mod: 'gemini-1.5-flash-latest' },
+            { ver: 'v1beta', mod: 'gemini-1.5-flash' },
+            { ver: 'v1', mod: 'gemini-1.5-flash' }
+        ];
 
-            FORMAT JSON:
-            {
-                "rhk": "Kalimat RHK Bawahan",
-                "aspek": [
-                    {"jenis": "Kualitas", "indikator": "Indikator Kinerja Individu spesifik", "target": "100%"},
-                    {"jenis": "Kuantitas", "indikator": "Jumlah hasil kerja spesifik", "target": "12 Laporan"},
-                    {"jenis": "Waktu", "indikator": "Waktu penyelesaian spesifik", "target": "12 Bulan"}
-                ],
-                "sub_periods": [
-                    {"rencana": "Rencana Aksi Triwulan 1", "target": "Target T1", "bukti": "Bukti T1"},
-                    {"rencana": "Rencana Aksi Triwulan 2", "target": "Target T2", "bukti": "Bukti T2"},
-                    {"rencana": "Rencana Aksi Triwulan 3", "target": "Target T3", "bukti": "Bukti T3"},
-                    {"rencana": "Rencana Aksi Triwulan 4", "target": "Target T4", "bukti": "Bukti T4"},
-                    {"rencana": "Capaian Akhir Tahun", "target": "Target Final", "bukti": "Bukti Final"}
-                ]
-            }`;
-        } else {
-            prompt = `Berikan satu kalimat RHK UTAMA/ATASAN (Meningkatnya/Terwujudnya) yang paling profesional untuk Jabatan: "${jabatan}" di Bidang: "${bidang}". 
-            Konteks Tugas: "${uraianContext}". 
-            Berikan hanya teks kalimat saja.`;
+        for (const attempt of attempts) {
+            try {
+                console.log(`AI Attempt: Using ${attempt.mod} on ${attempt.ver}...`);
+                const response = await fetch(`https://generativelanguage.googleapis.com/${attempt.ver}/models/${attempt.mod}:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    console.warn(`Attempt failed (${attempt.mod}/${attempt.ver}):`, data.error.message);
+                    continue; // Try next attempt
+                }
+
+                if (data.candidates && data.candidates[0].content) {
+                    console.log(`AI Success: ${attempt.mod} responded.`);
+                    let text = data.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '');
+                    if (atasanRhk) {
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            return { rhk: text.substring(0, 250) };
+                        }
+                    }
+                    return text.replace(/"/g, '');
+                }
+            } catch (err) {
+                console.error(`Fetch Error on ${attempt.mod}:`, err);
+            }
         }
 
-        try {
-            // Using v1 stable endpoint instead of v1beta
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        topK: 40,
-                        topP: 0.95,
-                        maxOutputTokens: 1024,
-                    }
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.error) {
-                console.error("Gemini API Status Error:", data.error.code, data.error.message);
-                // Fallback attempt with different model if 404 occurs
-                if (data.error.code === 404) {
-                    console.warn("Retrying with gemini-pro...");
-                    return await callGeminiAIFallback(jabatan, bidang, atasanRhk, apiKey);
-                }
-                return null;
-            }
-
-            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
-                let text = data.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '');
-                if (atasanRhk) {
-                    try {
-                        return JSON.parse(text);
-                    } catch (e) {
-                        return { rhk: text.substring(0, 250) };
-                    }
-                }
-                return text.replace(/"/g, '');
-            }
-            return null;
-        } catch (error) {
-            console.error("Critical Network Error:", error);
-            return null;
-        }
-    }
-
-    // Secondary fallback for resilience
-    async function callGeminiAIFallback(jabatan, bidang, atasanRhk, apiKey) {
-        const prompt = `Berikan kalimat RHK untuk ${jabatan} di ${bidang}. Singkat saja.`;
-        try {
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-            const d = await resp.json();
-            if (d.candidates) return d.candidates[0].content.parts[0].text;
-        } catch (e) { return null; }
+        console.error("All AI paths exhausted. Please check if your API Key is restricted or if the Gemini API is enabled in your Google Cloud project.");
         return null;
     }
 
