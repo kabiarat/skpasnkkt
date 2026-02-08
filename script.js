@@ -647,8 +647,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!apiKey) return null;
 
         const uraianContext = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
-        const prompt = atasanRhk ? `Tugas: Buat SKP Menpan-RB (JSON) untuk Jabatan: ${jabatan}, Bidang: ${bidang}, Konteks: ${uraianContext}, RHK Atasan: ${atasanRhk}. JSON format: {rhk, aspek:[{jenis, indikator, target}], sub_periods:[{rencana, target, bukti}]}.` :
-            `Berikan satu kalimat RHK Utama/Atasan untuk Jabatan: ${jabatan} di Bidang: ${bidang}.`;
+
+        // Detect if this is a Chat/Assistant call or a Table Generation call
+        const isChat = atasanRhk && atasanRhk.includes("User asks:");
+
+        let prompt = "";
+        if (isChat) {
+            prompt = atasanRhk; // Use the chat prompt as is
+        } else {
+            prompt = atasanRhk ? `Tugas: Buat SKP Menpan-RB (JSON) untuk Jabatan: ${jabatan}, Bidang: ${bidang}, Konteks: ${uraianContext}, RHK Atasan: ${atasanRhk}. JSON format: {rhk, aspek:[{jenis, indikator, target}], sub_periods:[{rencana, target, bukti}]}.` :
+                `Berikan satu kalimat RHK Utama/Atasan untuk Jabatan: ${jabatan} di Bidang: ${bidang}.`;
+        }
 
         // Strategy: Use Gemini 3 as priority if available (Newest Gen)
         const attempts = [
@@ -680,6 +689,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.candidates && data.candidates[0].content) {
                     console.log(`AI Success: ${attempt.mod} responded.`);
                     let text = data.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '');
+
+                    // If this was a chat call, return the raw text
+                    if (isChat) return text;
+
                     if (atasanRhk) {
                         try {
                             return JSON.parse(text);
