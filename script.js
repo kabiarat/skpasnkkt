@@ -1822,59 +1822,89 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // --- AI ASSISTANT CHAT LOGIC (With Memory) ---
+    // --- AI ASSISTANT GUIDED FLOW LOGIC ---
     const chatInput = document.getElementById('aiChatInput');
     const chatBtn = document.getElementById('aiSendBtn');
     const chatWindow = document.getElementById('aiChatWindow');
-    let aiChatHistory = []; // Memory for conversation
+
+    let chatFlow = {
+        step: 1,
+        jabatan: '',
+        pangkat: ''
+    };
 
     if (chatBtn && chatInput) {
+        const addMsgUI = (text, role) => {
+            const msgDiv = document.createElement('div');
+            msgDiv.style = role === 'user' ?
+                'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;' :
+                'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; line-height: 1.6;';
+
+            if (role === 'ai') {
+                msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+            } else {
+                msgDiv.textContent = text;
+            }
+
+            chatWindow.appendChild(msgDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        };
+
         const sendAiMsg = async () => {
-            const userText = chatInput.value.trim();
-            if (!userText) return;
+            const val = chatInput.value.trim();
+            if (!val) return;
 
-            // Add User Message to UI
-            const userMsgDiv = document.createElement('div');
-            userMsgDiv.className = 'user-msg';
-            userMsgDiv.style = 'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;';
-            userMsgDiv.textContent = userText;
-            chatWindow.appendChild(userMsgDiv);
-
-            // Add to Memory
-            aiChatHistory.push({ role: 'user', parts: [{ text: userText }] });
-
+            addMsgUI(val, 'user');
             chatInput.value = '';
-            chatWindow.scrollTop = chatWindow.scrollHeight;
 
-            // Thinking State
-            const thinkingDiv = document.createElement('div');
-            thinkingDiv.style = 'background: #e2e8f0; color: #64748b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; font-style: italic; margin-bottom: 15px;';
-            thinkingDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gemini 3 sedang menganalisis obrolan...';
-            chatWindow.appendChild(thinkingDiv);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
+            if (chatFlow.step === 1) {
+                chatFlow.jabatan = val;
+                chatFlow.step = 2;
+                setTimeout(() => addMsgUI(`Terima kasih. Selanjutnya, silakan masukkan **PANGKAT & GOLONGAN** Anda (Contoh: Penata Muda - III/a).`, 'ai'), 500);
+            }
+            else if (chatFlow.step === 2) {
+                chatFlow.pangkat = val;
+                chatFlow.step = 3;
 
-            try {
-                // Specialized Chat Call
-                const aiResponse = await callGeminiChat(aiChatHistory);
-
-                thinkingDiv.remove();
-
-                const aiMsgDiv = document.createElement('div');
-                aiMsgDiv.style = 'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; white-space: pre-wrap;';
-                aiMsgDiv.textContent = aiResponse || "Maaf, Gemini sedang istirahat sebentar. Coba lagi ya.";
-                chatWindow.appendChild(aiMsgDiv);
-
-                // Add to Memory for next time
-                if (aiResponse) {
-                    aiChatHistory.push({ role: 'model', parts: [{ text: aiResponse }] });
-                }
-
-                // Keep memory light (last 10 messages)
-                if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
-
+                const thinking = document.createElement('div');
+                thinking.style = 'background: #e2e8f0; color: #64748b; padding: 12px 18px; border-radius: 15px; align-self: flex-start; margin-bottom: 15px; font-style: italic;';
+                thinking.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Mohon tunggu sebentar untuk mengambil data uraian tugas anda...';
+                chatWindow.appendChild(thinking);
                 chatWindow.scrollTop = chatWindow.scrollHeight;
-            } catch (err) {
-                thinkingDiv.textContent = "Terjadi gangguan sinyal AI.";
+
+                try {
+                    const prompt = `Berikan daftar Uraian Tugas (Job Description) yang KHUSUS untuk Jabatan: ${chatFlow.jabatan} dengan Pangkat/Golongan: ${chatFlow.pangkat}. 
+                    Gunakan standar Permenpan-RB. Output harus berupa poin-poin (bullet points) yang jelas, ringkas, dan profesional. 
+                    JANGAN berikan intro/outro. Langsung daftar tugas saja.`;
+
+                    const response = await callGeminiChat([{ role: 'user', parts: [{ text: prompt }] }]);
+                    thinking.remove();
+
+                    // Display response
+                    addMsgUI(response, 'ai');
+
+                    // Add "Apply" Button
+                    const applyBtn = document.createElement('button');
+                    applyBtn.className = 'btn-secondary';
+                    applyBtn.style = 'margin-bottom: 20px; width: 100%; border-radius: 10px; padding: 10px; background: #059669; color: white; border: none; font-weight: bold; cursor: pointer;';
+                    applyBtn.innerHTML = '<i class="fas fa-copy"></i> Salin ke Daftar Jabatan';
+                    applyBtn.onclick = () => {
+                        // Switch to Jabatan section
+                        document.querySelector('[data-target="jabatan-section"]').click();
+                        // Fill form
+                        document.getElementById('newJabatan').value = chatFlow.jabatan;
+                        document.getElementById('newUraian').value = response;
+                        // Show success
+                        showNotification('Data berhasil disalin! Silakan klik Simpan Jabatan Baru.', 'success');
+                        // Reset Chat
+                        chatFlow = { step: 1, jabatan: '', pangkat: '' };
+                    };
+                    chatWindow.appendChild(applyBtn);
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+                } catch (err) {
+                    thinking.textContent = "Gagal mengambil data. Coba lagi.";
+                }
             }
         };
 
