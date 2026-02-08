@@ -1767,6 +1767,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+    // --- AI ASSISTANT CHAT LOGIC ---
+    const chatInput = document.getElementById('aiChatInput');
+    const chatBtn = document.getElementById('aiSendBtn');
+    const chatWindow = document.getElementById('aiChatWindow');
+
+    if (chatBtn && chatInput) {
+        const sendAiMsg = async () => {
+            const userText = chatInput.value.trim();
+            if (!userText) return;
+
+            // Add User Message
+            const userMsgDiv = document.createElement('div');
+            userMsgDiv.className = 'user-msg';
+            userMsgDiv.style = 'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1);';
+            userMsgDiv.textContent = userText;
+            chatWindow.appendChild(userMsgDiv);
+            chatInput.value = '';
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            // Thinking State
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.className = 'ai-msg thinking';
+            thinkingDiv.style = 'background: #e2e8f0; color: #64748b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; font-style: italic;';
+            thinkingDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gemini sedang berpikir...';
+            chatWindow.appendChild(thinkingDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            try {
+                // Call AI with custom context
+                const aiResponse = await callGeminiAI("General", "Assistant", `User asks: ${userText}. (IMPORTANT: Provide a creative, non-repetitive, and helpful response about SKP or general work advice. Do not output JSON, just plain text.)`);
+
+                thinkingDiv.remove();
+
+                const aiMsgDiv = document.createElement('div');
+                aiMsgDiv.className = 'ai-msg';
+                aiMsgDiv.style = 'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05);';
+                aiMsgDiv.textContent = aiResponse || "Maaf, sistem AI sedang sibuk. Silakan coba beberapa saat lagi.";
+                chatWindow.appendChild(aiMsgDiv);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            } catch (err) {
+                thinkingDiv.textContent = "Terjadi kesalahan pada sistem AI.";
+            }
+        };
+
+        chatBtn.addEventListener('click', sendAiMsg);
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendAiMsg(); });
+    }
+
     // Start the application
     console.log("!!! Application Bootstrap Started !!!");
 
