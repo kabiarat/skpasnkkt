@@ -656,23 +656,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // HIGH-LEVEL PERMENPAN-RB PROMPT
             prompt = atasanRhk ? `
             BERTINDAKLAH sebagai Pakar Analis SDM Aparatur Pemerintah Indonesia.
-            TUGAS: Rumuskan Rencana Hasil Kerja (RHK) Bawahan yang LINIER dengan RHK Atasan berdasarkan Permenpan-RB No. 6 Tahun 2022.
+            TUGAS: Rumuskan Rencana Hasil Kerja (RHK) yang LINIER secara hukum dengan Permenpan-RB No. 6 Tahun 2022.
 
-            INPUT DATA:
-            - JABATAN PEGAWAI: "${jabatan}"
-            - BIDANG/UNIT KERJA: "${bidang}"
+            INPUT:
+            - JABATAN: "${jabatan}"
             - URAIAN TUGAS (ANJAB): "${uraianContext}"
-            - RHK ATASAN (INTERVENSI): "${atasanRhk}"
+            - RHK ATASAN: "${atasanRhk}"
 
-            INSTRUKSI KHUSUS (WAJIB):
-            1. RHK BAWAHAN: Gunakan Kata Kerja Hasil (Terlaksananya, Tersusunnya, Terkelolanya, Terdistribusinya). Sesuaikan dengan level Jabatan.
-            2. INDIKATOR (IKI): Harus terukur (SMART). 
-               - Kualitas: Misal "Tingkat akurasi data...", "Persentase kesesuaian...".
-               - Kuantitas: Misal "Jumlah laporan...", "Jumlah dokumen...".
-               - Waktu: Misal "Ketepatan waktu penyelesaian...".
-            3. RENCANA AKSI: Buat 4 Tahapan Triwulan yang logis dan progresif sesuai tupoksi JABATAN tersebut.
-            4. LARANGAN: Dilarang keras menggunakan kata "ATK", "Sarana Prasarana", atau "Gaji/Tunjangan" kecuali relevan secara teknis dengan ANJAB di atas.
-            5. BAHASA: Gunakan bahasa birokrasi ASN yang formal, baku, dan cerdas.
+            VERIFIKASI WAJIB:
+            1. IDENTIFIKASI LEVEL: Tentukan apakah Jabatan ini adalah JPT, JA (Administrator/Pengawas/Pelaksana), atau JF (Pertama/Muda/Madya). 
+            2. TAXONOMI KATA KERJA: Gunakan kata kerja sesuai level (Level Pelaksana = Operasional/Teknis, Level Fungsional = Analitis/Kajian).
+            3. LINEARITAS (MPH): Pastikan RHK Bawahan mendukung pencapaian RHK Atasan secara langsung.
+            4. INDIKATOR SMART: IKI (Kualitas, Kuantitas, Waktu) harus spesifik, bukan kalimat umum.
+            5. STANDAR NASIONAL: Uraian tugas harus merujuk pada profil jabatan standar nasional Indonesia.
+
+            LARANGAN: No chatter, No tips, No generic ATK/Sarana text.
 
             OUTPUT: WAJIB JSON Murni tanpa teks pembuka/penutup.
             FORMAT: {
@@ -1881,7 +1879,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const systemInstruction = {
             role: "user",
-            parts: [{ text: "SISTEM: Anda adalah Pakar Ahli SKP (Sasaran Kinerja Pegawai) Indonesia berbasis Permenpan-RB nomor 6 tahun 2022. Jawablah setiap pertanyaan user dengan cerdas, berwibawa, dan solutif. Anda harus ingat obrolan sebelumnya untuk memberikan jawaban yang BERTAHAP dan NYAMBUNG. Jangan gunakan format JSON, gunakan teks biasa yang ramah." }]
+            parts: [{ text: "SISTEM: Anda adalah Pakar Manajemen ASN Nasional. JAWABLAH secara Teknis, Struktural, dan mengacu pada standar ANJAB/ABK serta Permenpan-RB 6/2022. Saat memberikan Uraian Tugas, pastikan Nomenklaturnya sesuai dengan regulasi terbaru dan LINIER untuk kebutuhan SKP. Gunakan Markdown, No Basa-basi, dan pastikan data TERUKUR." }]
         };
 
         const contents = [systemInstruction, ...history];
