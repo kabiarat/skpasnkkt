@@ -1088,15 +1088,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // --- DUPLICATE CHECK WITHIN CURRENT SESSION ---
+        // --- SEMANTIC DUPLICATE CHECK (BKD LEVEL) ---
+        const newAtasanFp = rhkFingerprint(userRhkAtasan);
+        const newBawahanFp = rhkFingerprint(userRhkBawahan);
+
         const isDuplicate = currentRhkItems.some(item =>
-            item.atasan === userRhkAtasan &&
-            item.indikator === userIndikatorAtasan &&
-            item.bawahan === userRhkBawahan
+            rhkFingerprint(item.atasan) === newAtasanFp &&
+            rhkFingerprint(item.bawahan) === newBawahanFp
         );
 
         if (isDuplicate) {
-            showNotification('RHK ini sudah ada dalam daftar tabel!', 'error');
+            showNotification('RHK ini (atau yang maknanya sama) sudah ada dalam daftar!', 'error');
             return;
         }
 
