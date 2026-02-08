@@ -647,16 +647,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!apiKey) return null;
 
         const uraianContext = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
-
-        // Detect if this is a Chat/Assistant call or a Table Generation call
         const isChat = atasanRhk && atasanRhk.includes("User asks:");
 
         let prompt = "";
         if (isChat) {
-            prompt = atasanRhk; // Use the chat prompt as is
+            prompt = atasanRhk;
         } else {
-            prompt = atasanRhk ? `Tugas: Buat SKP Menpan-RB (JSON) untuk Jabatan: ${jabatan}, Bidang: ${bidang}, Konteks: ${uraianContext}, RHK Atasan: ${atasanRhk}. JSON format: {rhk, aspek:[{jenis, indikator, target}], sub_periods:[{rencana, target, bukti}]}.` :
-                `Berikan satu kalimat RHK Utama/Atasan untuk Jabatan: ${jabatan} di Bidang: ${bidang}.`;
+            // HIGH-LEVEL PERMENPAN-RB PROMPT
+            prompt = atasanRhk ? `
+            BERTINDAKLAH sebagai Pakar Analis SDM Aparatur Pemerintah Indonesia.
+            TUGAS: Rumuskan Rencana Hasil Kerja (RHK) Bawahan yang LINIER dengan RHK Atasan berdasarkan Permenpan-RB No. 6 Tahun 2022.
+
+            INPUT DATA:
+            - JABATAN PEGAWAI: "${jabatan}"
+            - BIDANG/UNIT KERJA: "${bidang}"
+            - URAIAN TUGAS (ANJAB): "${uraianContext}"
+            - RHK ATASAN (INTERVENSI): "${atasanRhk}"
+
+            INSTRUKSI KHUSUS (WAJIB):
+            1. RHK BAWAHAN: Gunakan Kata Kerja Hasil (Terlaksananya, Tersusunnya, Terkelolanya, Terdistribusinya). Sesuaikan dengan level Jabatan.
+            2. INDIKATOR (IKI): Harus terukur (SMART). 
+               - Kualitas: Misal "Tingkat akurasi data...", "Persentase kesesuaian...".
+               - Kuantitas: Misal "Jumlah laporan...", "Jumlah dokumen...".
+               - Waktu: Misal "Ketepatan waktu penyelesaian...".
+            3. RENCANA AKSI: Buat 4 Tahapan Triwulan yang logis dan progresif sesuai tupoksi JABATAN tersebut.
+            4. LARANGAN: Dilarang keras menggunakan kata "ATK", "Sarana Prasarana", atau "Gaji/Tunjangan" kecuali relevan secara teknis dengan ANJAB di atas.
+            5. BAHASA: Gunakan bahasa birokrasi ASN yang formal, baku, dan cerdas.
+
+            OUTPUT: WAJIB JSON Murni tanpa teks pembuka/penutup.
+            FORMAT: {
+                "rhk": "Isi kalimat RHK",
+                "aspek": [
+                    {"jenis": "Kualitas", "indikator": "...", "target": "100%"},
+                    {"jenis": "Kuantitas", "indikator": "...", "target": "12 Laporan"},
+                    {"jenis": "Waktu", "indikator": "...", "target": "12 Bulan"}
+                ],
+                "sub_periods": [
+                    {"rencana": "Triwulan 1: ...", "target": "1 Laporan", "bukti": "Laporan Pelaksanaan"},
+                    {"rencana": "Triwulan 2: ...", "target": "1 Laporan", "bukti": "Laporan Pelaksanaan"},
+                    {"rencana": "Triwulan 3: ...", "target": "1 Laporan", "bukti": "Laporan Pelaksanaan"},
+                    {"rencana": "Triwulan 4: ...", "target": "1 Laporan", "bukti": "Laporan Pelaksanaan"},
+                    {"rencana": "Capaian Tahunan", "target": "Total Laporan", "bukti": "Dokumen Lengkap"}
+                ]
+            }` :
+                `Berikan satu kalimat RHK Utama/Atasan (Meningkatnya/Terwujudnya) yang paling profesional dan berwibawa untuk Jabatan: ${jabatan} di Bidang: ${bidang}. Fokus pada output strategis.`;
         }
 
         // Strategy: Use Gemini 3 as priority if available (Newest Gen)
@@ -1780,52 +1814,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // --- AI ASSISTANT CHAT LOGIC ---
+    // --- AI ASSISTANT CHAT LOGIC (With Memory) ---
     const chatInput = document.getElementById('aiChatInput');
     const chatBtn = document.getElementById('aiSendBtn');
     const chatWindow = document.getElementById('aiChatWindow');
+    let aiChatHistory = []; // Memory for conversation
 
     if (chatBtn && chatInput) {
         const sendAiMsg = async () => {
             const userText = chatInput.value.trim();
             if (!userText) return;
 
-            // Add User Message
+            // Add User Message to UI
             const userMsgDiv = document.createElement('div');
             userMsgDiv.className = 'user-msg';
-            userMsgDiv.style = 'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1);';
+            userMsgDiv.style = 'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;';
             userMsgDiv.textContent = userText;
             chatWindow.appendChild(userMsgDiv);
+
+            // Add to Memory
+            aiChatHistory.push({ role: 'user', parts: [{ text: userText }] });
+
             chatInput.value = '';
             chatWindow.scrollTop = chatWindow.scrollHeight;
 
             // Thinking State
             const thinkingDiv = document.createElement('div');
-            thinkingDiv.className = 'ai-msg thinking';
-            thinkingDiv.style = 'background: #e2e8f0; color: #64748b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; font-style: italic;';
-            thinkingDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gemini sedang berpikir...';
+            thinkingDiv.style = 'background: #e2e8f0; color: #64748b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; font-style: italic; margin-bottom: 15px;';
+            thinkingDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gemini 3 sedang menganalisis obrolan...';
             chatWindow.appendChild(thinkingDiv);
             chatWindow.scrollTop = chatWindow.scrollHeight;
 
             try {
-                // Call AI with custom context
-                const aiResponse = await callGeminiAI("General", "Assistant", `User asks: ${userText}. (IMPORTANT: Provide a creative, non-repetitive, and helpful response about SKP or general work advice. Do not output JSON, just plain text.)`);
+                // Specialized Chat Call
+                const aiResponse = await callGeminiChat(aiChatHistory);
 
                 thinkingDiv.remove();
 
                 const aiMsgDiv = document.createElement('div');
-                aiMsgDiv.className = 'ai-msg';
-                aiMsgDiv.style = 'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05);';
-                aiMsgDiv.textContent = aiResponse || "Maaf, sistem AI sedang sibuk. Silakan coba beberapa saat lagi.";
+                aiMsgDiv.style = 'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; white-space: pre-wrap;';
+                aiMsgDiv.textContent = aiResponse || "Maaf, Gemini sedang istirahat sebentar. Coba lagi ya.";
                 chatWindow.appendChild(aiMsgDiv);
+
+                // Add to Memory for next time
+                if (aiResponse) {
+                    aiChatHistory.push({ role: 'model', parts: [{ text: aiResponse }] });
+                }
+
+                // Keep memory light (last 10 messages)
+                if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
+
                 chatWindow.scrollTop = chatWindow.scrollHeight;
             } catch (err) {
-                thinkingDiv.textContent = "Terjadi kesalahan pada sistem AI.";
+                thinkingDiv.textContent = "Terjadi gangguan sinyal AI.";
             }
         };
 
         chatBtn.addEventListener('click', sendAiMsg);
         chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendAiMsg(); });
+    }
+
+    // New Dedicated Chat API Function
+    async function callGeminiChat(history) {
+        const apiKey = geminiConfig.getStoredKey();
+        if (!apiKey) return "API Key belum terpasang.";
+
+        const systemInstruction = {
+            role: "user",
+            parts: [{ text: "SISTEM: Anda adalah Pakar Ahli SKP (Sasaran Kinerja Pegawai) Indonesia berbasis Permenpan-RB nomor 6 tahun 2022. Jawablah setiap pertanyaan user dengan cerdas, berwibawa, dan solutif. Anda harus ingat obrolan sebelumnya untuk memberikan jawaban yang BERTAHAP dan NYAMBUNG. Jangan gunakan format JSON, gunakan teks biasa yang ramah." }]
+        };
+
+        const contents = [systemInstruction, ...history];
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: contents })
+            });
+            const data = await response.json();
+            if (data.candidates) return data.candidates[0].content.parts[0].text;
+            return "Gagal mendapatkan respons AI.";
+        } catch (e) { return "Koneksi ke Gemini terputus."; }
     }
 
     // Start the application
