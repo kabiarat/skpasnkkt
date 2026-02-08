@@ -642,38 +642,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- JAMINAN BKD: ANTI-ECHO SANITATION ---
+    function sanitizeRhk(aiRhk, atasanRhk) {
+        if (!aiRhk || !atasanRhk) return aiRhk;
+        const normalize = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const nAi = normalize(aiRhk);
+        const nAtasan = normalize(atasanRhk);
+
+        // Block if AI is just copying the boss's RHK
+        if (nAi.includes(nAtasan) || nAtasan.includes(nAi)) {
+            console.warn("Jaminan BKD: AI mencoba menyalin RHK Atasan. Melakukan penyesuaian otomatis...");
+            return "Terlaksananya dukungan teknis dan operasional terkait: " + atasanRhk;
+        }
+        return aiRhk;
+    }
+
     async function callGeminiAI(jabatan, bidang, atasanRhk) {
         const apiKey = geminiConfig.getStoredKey();
         if (!apiKey) return null;
 
         const uraianContext = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
-        const isChat = atasanRhk && atasanRhk.includes("User asks:");
 
-        let prompt = "";
-        if (isChat) {
-            prompt = atasanRhk;
-        } else {
-            // HIGH-LEVEL PERMENPAN-RB PROMPT (Refined with Zero-Echo Logic)
-            prompt = atasanRhk ? `
+        // FORCE NON-CHAT MODE: Prompt must always be a structured instruction
+        const prompt = atasanRhk ? `
             ANDA ADALAH ANALIS KINERJA ASN (PERMENPAN RB 6/2022). JANGAN MENJADI PARAPHRASE.
             
             ATURAN KERAS:
-            - JANGAN MENGULANG kalimat RHK Atasan.
-            - JANGAN menyalin frasa dari RHK Atasan secara langsung.
-            - GUNAKAN sudut pandang BAWAHAN (Output/Hasil Kerja).
-            - HASIL harus OPERASIONAL, TEKNIS, dan TERUKUR.
+            - JANGAN MENGULANG atau menyalin kalimat RHK Atasan.
+            - GUNAKAN SUDUT PANDANG BAWAHAN (HASIL KERJA).
+            - HASIL HARUS OPERASIONAL DAN TEKNIS.
+            - GUNAKAN KATA KERJA: Menyusun, Melaksanakan, Mengelola, Memverifikasi, Mendokumentasikan.
+            - HINDARI KATA KERJA STRATEGIS: Meningkatkan, Mendorong, Mengoptimalkan.
             
             KONTEKS:
             - Jabatan Bawahan : "${jabatan}"
             - Uraian Tugas    : "${uraianContext}"
-            - RHK ATASAN (HANYA SEBAGAI ARAH, JANGAN DISALIN): "${atasanRhk}"
+            - RHK ATASAN (ARAHAN): "${atasanRhk}"
 
-            TUGAS:
-            Buatlah rumusan SKP dalam format JSON lengkap.
+            TUGAS: Buat SKP dalam format JSON.
+            "rhk": "1 Kalimat RHK Bawahan yang mendukung atasan namun tidak mengulangnya".
             
             FORMAT JSON:
             {
-                "rhk": "1 Kalimat RHK Bawahan yang mendukung atasan namun tidak mengulangnya",
+                "rhk": "...",
                 "aspek": [
                     {"jenis": "Kualitas", "indikator": "...", "target": "100%"},
                     {"jenis": "Kuantitas", "indikator": "...", "target": "12 Laporan"},
@@ -687,8 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     {"rencana": "Capaian Tahunan", "target": "Total Laporan", "bukti": "Dokumen Lengkap"}
                 ]
             }` :
-                `Berikan satu kalimat RHK Utama/Atasan (Meningkatnya/Terwujudnya) yang paling profesional dan berwibawa untuk Jabatan: ${jabatan} di Bidang: ${bidang}. Fokus pada output strategis.`;
-        }
+            `Berikan satu kalimat RHK Utama/Atasan yang profesional untuk Jabatan: ${jabatan} di Bidang: ${bidang}.`;
 
         // Strategy: Use Gemini 3 as priority if available (Newest Gen)
         const attempts = [
@@ -721,19 +731,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`AI Success: ${attempt.mod} responded.`);
                     let text = data.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '');
 
-                    // Final Cleanup: Clean AI from echoing atasanRhk in the response
-                    if (atasanRhk && !isChat) {
-                        text = text.replace(atasanRhk, '').replace(/RHK Atasan.*?:/gi, '').trim();
-                    }
-
-                    // If this was a chat call, return the raw text
-                    if (isChat) return text;
-
                     if (atasanRhk) {
                         try {
-                            return JSON.parse(text);
+                            const parsed = JSON.parse(text);
+                            // SANITIZATION STEP
+                            parsed.rhk = sanitizeRhk(parsed.rhk, atasanRhk);
+                            return parsed;
                         } catch (e) {
-                            return { rhk: text.substring(0, 250) };
+                            return { rhk: sanitizeRhk(text.substring(0, 250), atasanRhk) };
                         }
                     }
                     return text.replace(/"/g, '');
