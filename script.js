@@ -653,28 +653,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isChat) {
             prompt = atasanRhk;
         } else {
-            // HIGH-LEVEL PERMENPAN-RB PROMPT
+            // HIGH-LEVEL PERMENPAN-RB PROMPT (Refined with Zero-Echo Logic)
             prompt = atasanRhk ? `
-            BERTINDAKLAH sebagai Pakar Analis SDM Aparatur Pemerintah Indonesia.
-            TUGAS: Rumuskan Rencana Hasil Kerja (RHK) yang LINIER secara hukum dengan Permenpan-RB No. 6 Tahun 2022.
+            ANDA ADALAH ANALIS KINERJA ASN (PERMENPAN RB 6/2022). JANGAN MENJADI PARAPHRASE.
+            
+            ATURAN KERAS:
+            - JANGAN MENGULANG kalimat RHK Atasan.
+            - JANGAN menyalin frasa dari RHK Atasan secara langsung.
+            - GUNAKAN sudut pandang BAWAHAN (Output/Hasil Kerja).
+            - HASIL harus OPERASIONAL, TEKNIS, dan TERUKUR.
+            
+            KONTEKS:
+            - Jabatan Bawahan : "${jabatan}"
+            - Uraian Tugas    : "${uraianContext}"
+            - RHK ATASAN (HANYA SEBAGAI ARAH, JANGAN DISALIN): "${atasanRhk}"
 
-            INPUT:
-            - JABATAN: "${jabatan}"
-            - URAIAN TUGAS (ANJAB): "${uraianContext}"
-            - RHK ATASAN: "${atasanRhk}"
-
-            VERIFIKASI WAJIB:
-            1. IDENTIFIKASI LEVEL: Tentukan apakah Jabatan ini adalah JPT, JA (Administrator/Pengawas/Pelaksana), atau JF (Pertama/Muda/Madya). 
-            2. TAXONOMI KATA KERJA: Gunakan kata kerja sesuai level (Level Pelaksana = Operasional/Teknis, Level Fungsional = Analitis/Kajian).
-            3. LINEARITAS (MPH): Pastikan RHK Bawahan mendukung pencapaian RHK Atasan secara langsung.
-            4. INDIKATOR SMART: IKI (Kualitas, Kuantitas, Waktu) harus spesifik, bukan kalimat umum.
-            5. STANDAR NASIONAL: Uraian tugas harus merujuk pada profil jabatan standar nasional Indonesia.
-
-            LARANGAN: No chatter, No tips, No generic ATK/Sarana text.
-
-            OUTPUT: WAJIB JSON Murni tanpa teks pembuka/penutup.
-            FORMAT: {
-                "rhk": "Isi kalimat RHK",
+            TUGAS:
+            Buatlah rumusan SKP dalam format JSON lengkap.
+            
+            FORMAT JSON:
+            {
+                "rhk": "1 Kalimat RHK Bawahan yang mendukung atasan namun tidak mengulangnya",
                 "aspek": [
                     {"jenis": "Kualitas", "indikator": "...", "target": "100%"},
                     {"jenis": "Kuantitas", "indikator": "...", "target": "12 Laporan"},
@@ -721,6 +720,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.candidates && data.candidates[0].content) {
                     console.log(`AI Success: ${attempt.mod} responded.`);
                     let text = data.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '');
+
+                    // Final Cleanup: Clean AI from echoing atasanRhk in the response
+                    if (atasanRhk && !isChat) {
+                        text = text.replace(atasanRhk, '').replace(/RHK Atasan.*?:/gi, '').trim();
+                    }
 
                     // If this was a chat call, return the raw text
                     if (isChat) return text;
@@ -1059,6 +1063,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function executeGenerate(userJabatan, userRhkAtasan, userRhkBawahan, userIndikatorAtasan, userLevelAtasan) {
+        // Anti-Duplicate Check
+        if (currentRhkItems.some(r => r.atasan.trim() === userRhkAtasan.trim())) {
+            showNotification('RHK Atasan ini sudah ditambahkan ke daftar!', 'error');
+            return;
+        }
+
         // Basic Validation
         if (!userJabatan) {
             showNotification('Harap pilih Jabatan terlebih dahulu!', 'error');
@@ -1877,9 +1887,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const apiKey = geminiConfig.getStoredKey();
         if (!apiKey) return "API Key belum terpasang.";
 
+        // Capture current context from the main form
+        const curJab = inputs.jabatan ? inputs.jabatan.value : "Tidak diketahui";
+        const curBid = inputs.bidang ? inputs.bidang.value : "Tidak diketahui";
+        const curUraian = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
+
         const systemInstruction = {
             role: "user",
-            parts: [{ text: "SISTEM: Anda adalah Pakar Manajemen ASN Nasional. JAWABLAH secara Teknis, Struktural, dan mengacu pada standar ANJAB/ABK serta Permenpan-RB 6/2022. Saat memberikan Uraian Tugas, pastikan Nomenklaturnya sesuai dengan regulasi terbaru dan LINIER untuk kebutuhan SKP. Gunakan Markdown, No Basa-basi, dan pastikan data TERUKUR." }]
+            parts: [{
+                text: `SISTEM: Anda adalah Robot Analis Kepegawaian. 
+            KONTEKS PEGAWAI: Jabatan: ${curJab}, Bidang: ${curBid}, Uraian Tugas: ${curUraian}.
+            
+            ATURAN KETAT (DILARANG DILANGGAR):
+            1. JANGAN ucapkan salam, terima kasih, atau perkenalan.
+            2. JANGAN jelaskan apa itu jabatan tersebut atau betapa pentingnya ia.
+            3. JANGAN bertanya balik kepada pengguna (seperti 'Di unit mana Anda bertugas?'). Gunakan konteks di atas.
+            4. LANGSUNG berikan list data teknis/list uraian tugas yang diminta.
+            5. Gunakan format Markdown murni. 
+            6. Jika user tanya sesuatu yang sudah ada di konteks, JANGAN tanya lagi. 
+            7. Jawaban harus No-Nonsense, kaku, dan profesional.` }]
         };
 
         const contents = [systemInstruction, ...history];
