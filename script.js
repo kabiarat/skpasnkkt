@@ -723,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- AUTO-GENERATE RHK BAWAHAN LOGIC ---
+    // --- AUTO-GENERATE RHK BAWAHAN LOGIC (INTERNAL) ---
     function formulateBawahanRhk(atasanText, bidangText = "") {
         if (!atasanText) return "";
         let text = atasanText.trim();
@@ -743,56 +743,10 @@ document.addEventListener('DOMContentLoaded', () => {
             result = "Terlaksananya " + text;
         }
 
-        // Add Bidang context if available
         if (bidangText && bidangText.trim() !== "" && !result.toLowerCase().includes(bidangText.toLowerCase())) {
             result += " pada " + bidangText;
         }
-
         return result;
-    }
-
-    const syncRhkBtn = document.getElementById('syncRhkBtn');
-    if (syncRhkBtn) {
-        syncRhkBtn.addEventListener('click', async () => {
-            const atasanVal = inputs.rhkAtasan.value;
-            const bidangVal = inputs.bidang.value;
-            const jabatanVal = inputs.jabatan.value;
-
-            if (!atasanVal) {
-                showNotification('Harap isi RHK Atasan terlebih dahulu!', 'error');
-                return;
-            }
-
-            const apiKey = geminiConfig.getStoredKey();
-            if (apiKey && apiKey !== "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k") {
-                showNotification('Menghubungkan ke Gemini AI...', 'info');
-                syncRhkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses AI...';
-                syncRhkBtn.disabled = true;
-
-                const aiResult = await callGeminiAI(jabatanVal, bidangVal, atasanVal);
-
-                if (aiResult) {
-                    if (typeof aiResult === 'object') {
-                        inputs.rhkBawahan.value = aiResult.rhk;
-                        // Store the full dynamic data for later table generation
-                        inputs.rhkBawahan.dataset.dynamicData = JSON.stringify(aiResult);
-                        showNotification('RHK & Indikator berhasil dirumuskan oleh AI!', 'success');
-                    } else {
-                        inputs.rhkBawahan.value = aiResult;
-                        showNotification('RHK berhasil dirumuskan!', 'success');
-                    }
-                } else {
-                    showNotification('AI Gagal merespons. Menggunakan rumusan standar.', 'info');
-                    inputs.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
-                }
-                syncRhkBtn.innerHTML = '<i class="fas fa-magic"></i> 💡 Buat RHK Saya Berdasarkan Atasan';
-                syncRhkBtn.disabled = false;
-            } else {
-                // Fallback standard if no valid custom key
-                inputs.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
-                showNotification('Rumusan standar diterapkan (API Key belum terpasang).', 'info');
-            }
-        });
     }
 
     const editSyncRhkBtn = document.getElementById('editSyncRhkBtn');
@@ -1011,46 +965,77 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // GENERATE BUTTON
-    buttons.generate.addEventListener('click', () => {
+    buttons.generate.addEventListener('click', async () => {
         const userJabatan = inputs.jabatan.value.trim();
+        const userBidang = inputs.bidang.value.trim();
         const userRhkAtasan = inputs.rhkAtasan.value.trim();
-        const userRhkBawahan = inputs.rhkBawahan.value.trim();
         const userIndikatorAtasan = inputs.indikatorAtasan.value.trim();
         const userLevelAtasan = inputs.levelAtasan.value;
 
-        // Loading Animation Logic
-        // Show Loading Overlay
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const aiValidation = document.getElementById('aiValidationStatus');
-        loadingOverlay.style.display = 'flex';
-        if (aiValidation) aiValidation.style.display = 'none';
+        if (!userJabatan || !userRhkAtasan) {
+            showNotification('Harap lengkapi Jabatan dan RHK Atasan!', 'error');
+            return;
+        }
 
-        // Stage 1: Processing
-        setTimeout(() => {
-            if (aiValidation) {
-                aiValidation.style.display = 'block';
-                aiValidation.innerHTML = '<i class="fas fa-microchip fa-spin"></i> AI sedang menganalisis kelinieran RHK...';
+        // Show Loading Overlay
+        const lOverlay = document.getElementById('loadingOverlay');
+        const lTitle = document.getElementById('loadingTitle');
+        const lMsg = document.getElementById('loadingMsg');
+        const aiV = document.getElementById('aiValidationStatus');
+
+        lOverlay.style.display = 'flex';
+        if (aiV) aiV.style.display = 'none';
+
+        try {
+            // STEP 1: AUTOMATICALLY FORMULATE BAWAHAN RHK via AI or Formula
+            lTitle.textContent = "Sedang Merumuskan RHK Anda";
+            lMsg.textContent = "AI sedang menyesuaikan RHK Anda dengan RHK Atasan & Uraian Tugas...";
+
+            const apiKey = geminiConfig.getStoredKey();
+            let aiResult = null;
+
+            if (apiKey && apiKey !== "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k") {
+                aiResult = await callGeminiAI(userJabatan, userBidang, userRhkAtasan);
             }
 
-            // Stage 2: Final Validation Check
+            if (aiResult && typeof aiResult === 'object') {
+                inputs.rhkBawahan.value = aiResult.rhk;
+                inputs.rhkBawahan.dataset.dynamicData = JSON.stringify(aiResult);
+            } else {
+                // Fallback to formula
+                inputs.rhkBawahan.value = formulateBawahanRhk(userRhkAtasan, userBidang);
+                inputs.rhkBawahan.dataset.dynamicData = "";
+            }
+
+            // STEP 2: FINALIZE ADD TO TABLE
+            lTitle.textContent = "Menyusun Tabel SKP";
+            lMsg.textContent = "Memverifikasi kelinieran dan menyusun struktur tabel...";
+
             setTimeout(() => {
-                if (aiValidation) {
-                    aiValidation.style.background = '#f0fdf4';
-                    aiValidation.style.color = '#166534';
-                    aiValidation.innerHTML = '<i class="fas fa-check-double"></i> Validasi Berhasil: SKP Linier & Sesuai Standar Menpan.';
+                if (aiV) {
+                    aiV.style.display = 'block';
+                    aiV.style.background = '#f0fdf4';
+                    aiV.style.color = '#166534';
+                    aiV.innerHTML = '<i class="fas fa-check-double"></i> RHK Anda otomatis dirumuskan & diverifikasi.';
                 }
 
                 setTimeout(() => {
-                    loadingOverlay.style.display = 'none';
-                    executeGenerate(userJabatan, userRhkAtasan, userRhkBawahan, userIndikatorAtasan, userLevelAtasan);
+                    lOverlay.style.display = 'none';
+                    executeGenerate(userJabatan, userRhkAtasan, inputs.rhkBawahan.value, userIndikatorAtasan, userLevelAtasan);
 
-                    // Clear RHK inputs after adding to table to prompt user for second RHK
+                    // Cleanup inputs for next entry
                     inputs.rhkAtasan.value = '';
-                    inputs.rhkBawahan.value = '';
                     inputs.indikatorAtasan.value = '';
-                }, 1000);
-            }, 1500);
-        }, 1500);
+                    inputs.rhkBawahan.value = '';
+                    inputs.rhkBawahan.dataset.dynamicData = "";
+                }, 800);
+            }, 800);
+
+        } catch (err) {
+            console.error("Generate Flow Error:", err);
+            lOverlay.style.display = 'none';
+            showNotification("Terjadi kesalahan saat merumuskan RHK.", "error");
+        }
     });
 
     function executeGenerate(userJabatan, userRhkAtasan, userRhkBawahan, userIndikatorAtasan, userLevelAtasan) {

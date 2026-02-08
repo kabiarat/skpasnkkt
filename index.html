@@ -248,17 +248,8 @@
                     <textarea id="indikatorAtasan" rows="2"
                         placeholder="Masukkan Indikator Kinerja Atasan..."></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="rhkBawahan">RHK Anda (Pegawai)</label>
-                    <div style="display: flex; gap: 8px; flex-direction: column;">
-                        <textarea id="rhkBawahan" rows="2"
-                            placeholder="Masukkan RHK Anda (Atau gunakan tombol di bawah untuk otomatis)"></textarea>
-                        <button type="button" id="syncRhkBtn" class="btn-secondary"
-                            style="background: #fdf2f8; color: #be185d; border: 1px dashed #be185d; padding: 5px 10px; font-size: 0.8rem; border-radius: 5px; align-self: flex-start; cursor: pointer;">
-                            <i class="fas fa-magic"></i> 💡 Buat RHK Saya Berdasarkan Atasan
-                        </button>
-                    </div>
-                </div>
+                <!-- RHK Bawahan will be auto-generated during 'Add to Table' -->
+                <input type="hidden" id="rhkBawahan">
 
                 <!-- ADDED RHK LIST -->
                 <div id="addedRhkContainer"
