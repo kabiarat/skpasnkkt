@@ -1851,15 +1851,13 @@ document.addEventListener('DOMContentLoaded', () => {
             'background: var(--primary-color); color: white; padding: 12px 18px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;' :
             'background: #fff; color: #1e293b; padding: 12px 18px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 80%; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; line-height: 1.6;';
 
-        // CLEAN TEXT FROM MARKDOWN STARS
-        let cleanText = text.replace(/\*\*/g, '').replace(/\*/g, '•'); // Replace stars with bullets if simple
+        // FORMATTER: Bold (**) to <b>, Bullets (*) to •
+        let formatted = text
+            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Tebalkan jika ada **
+            .replace(/^\s*\*\s+/gm, '• ')           // Ubah bintang di awal baris jadi bullet
+            .replace(/\n/g, '<br>');               // Baris baru
 
-        if (isHtml) {
-            msgDiv.innerHTML = cleanText.replace(/\n/g, '<br>');
-        } else {
-            msgDiv.textContent = cleanText;
-        }
-
+        msgDiv.innerHTML = formatted;
         chatWindow.appendChild(msgDiv);
         chatWindow.scrollTop = chatWindow.scrollHeight;
         return msgDiv;
@@ -1989,7 +1987,7 @@ document.addEventListener('DOMContentLoaded', () => {
             2. PPPK Gol IX setara Ahli Pertama, Gol X-XI setara Ahli Muda. Sesuaikan tingkat kesulitan tugasnya.
             3. JANGAN ucapkan salam, terima kasih, atau perkenalan.
             4. JANGAN bertanya balik kepada pengguna. Gunakan konteks di atas.
-            5. JANGAN gunakan simbol Markdown (seperti ** atau #). Gunakan teks biasa yang rapi.
+            5. Gunakan BOLD (**) untuk poin penting dan BULLET (*) untuk daftar tugas agar mudah dibaca.
             6. LANGSUNG berikan list data teknis/list uraian tugas yang diminta.
             7. Jawaban harus No-Nonsense, kaku, dan profesional.` }]
         };
