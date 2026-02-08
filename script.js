@@ -251,8 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const opt = document.createElement('option');
                 opt.value = jab.nama;
                 opt.textContent = jab.nama;
-                // Store the full description in a data attribute
-                opt.setAttribute('data-uraian', jab.uraian_tugas || "");
+                // Store the full description in the dataset for reactive access
+                opt.dataset.uraian = jab.uraian_tugas || "";
                 jabatanInputs.selector.appendChild(opt);
             });
         }
@@ -592,30 +592,56 @@ document.addEventListener('DOMContentLoaded', () => {
     const geminiConfig = {
         keyInput: document.getElementById('geminiKey'),
         saveBtn: document.getElementById('saveAiKeyBtn'),
-        // Set the user provided key as the initial value or fallback
-        getStoredKey: () => localStorage.getItem('gemini_api_key') || "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k"
+        getStoredKey: () => localStorage.getItem('gemini_api_key') || "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k",
+
+        // New: Load from Supabase to sync across devices
+        syncFromCloud: async function () {
+            try {
+                const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'gemini_api_key').maybeSingle();
+                if (data && data.value) {
+                    localStorage.setItem('gemini_api_key', data.value);
+                    if (this.keyInput) this.keyInput.value = data.value;
+                    return data.value;
+                }
+            } catch (e) { console.warn("Supabase Key Sync Failed:", e); }
+            return this.getStoredKey();
+        }
     };
 
-    if (geminiConfig.saveBtn) {
-        // Init UI with current key
-        geminiConfig.keyInput.value = geminiConfig.getStoredKey();
+    // Load key on startup
+    geminiConfig.syncFromCloud().then(k => {
+        if (geminiConfig.keyInput) geminiConfig.keyInput.value = k;
+    });
 
-        geminiConfig.saveBtn.addEventListener('click', () => {
+    if (geminiConfig.saveBtn) {
+        geminiConfig.saveBtn.addEventListener('click', async () => {
             const key = geminiConfig.keyInput.value.trim();
             try {
                 if (key) {
+                    // 1. Save to Local
                     localStorage.setItem('gemini_api_key', key);
-                    showNotification('API Key tersimpan secara lokal!', 'success');
-                    console.log("API Key saved to localStorage.");
+
+                    // 2. Save to Supabase (Cloud)
+                    const { error } = await supabase.from('app_settings').upsert({
+                        key: 'gemini_api_key',
+                        value: key
+                    });
+
+                    if (error) {
+                        console.warn("Cloud save failed, but local saved:", error);
+                        showNotification('Key tersimpan di browser (Gagal sinkron cloud).', 'info');
+                    } else {
+                        showNotification('API Key berhasil disimpan permanen!', 'success');
+                    }
                 } else {
                     localStorage.removeItem('gemini_api_key');
+                    await supabase.from('app_settings').delete().eq('key', 'gemini_api_key');
                     showNotification('API Key dihapus.', 'info');
-                    // Reset to hardcoded fallback in UI after clear
                     geminiConfig.keyInput.value = "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k";
                 }
             } catch (e) {
-                console.error("Storage Error:", e);
-                showNotification('Gagal mengakses penyimpanan browser!', 'error');
+                console.error("Save Error:", e);
+                showNotification('Gagal menyimpan data!', 'error');
             }
         });
     }
@@ -627,19 +653,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // Use the manual edit from "Uraian Tugas Singkat" box in the form
         const uraianContext = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
 
-        const prompt = `Tuliskan SATU KALIMAT Rencana Hasil Kerja (RHK) untuk pegawai:
-        - JABATAN: "${jabatan}"
-        - BIDANG: "${bidang}"
-        ${uraianContext ? `- KONTEKS TUGAS/URAIAN: "${uraianContext}"` : ""}
-        
-        RHK ini HARUS mendongkrak/mendukung RHK ATASAN berikut: "${atasanRhk}". 
-        
-        SYARAT UTAMA: 
-        1. Gunakan standar bahasa birokrasi ASN (Menpan-RB).
-        2. Harus diawali dengan kata benda hasil (contoh: Terlaksananya, Tersusunnya, Terkelolanya, Terwujudnya).
-        3. Kalimat RHK HARUS SESUAI dengan Konteks Tugas/Uraian yang diberikan di atas.
-        4. Kalimat harus unik, profesional, dan linier.
-        5. JANGAN berikan teks pengantar, HANYA kalimat RHK saja.`;
+        // Define prompt based on whether we are context-building or interlinking
+        let prompt = "";
+        if (atasanRhk) {
+            prompt = `Tuliskan SATU KALIMAT Rencana Hasil Kerja (RHK) BAWAHAN untuk pegawai:
+            - JABATAN: "${jabatan}"
+            - BIDANG: "${bidang}"
+            - KONTEKS TUGAS: "${uraianContext}"
+            
+            RHK ini HARUS mendongkrak/mendukung RHK ATASAN berikut: "${atasanRhk}". 
+            
+            SYARAT: 
+            1. Gunakan bahasa birokrasi ASN (Terlaksananya/Tersusunnya/Terkelolanya).
+            2. Harus linier dan logis.
+            3. HANYA kalimat RHK saja.`;
+        } else {
+            prompt = `Tuliskan SATU KALIMAT RHK Atasan/Utama yang cocok untuk Jabatan: "${jabatan}" di Bidang: "${bidang}" dengan Uraian Tugas: "${uraianContext}". 
+            Gunakan awalan kata benda hasil (contoh: Meningkatnya, Terwujudnya). HANYA kalimat saja.`;
+        }
 
         try {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
@@ -651,12 +682,21 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const data = await response.json();
-            if (data.candidates && data.candidates[0].content.parts[0].text) {
-                return data.candidates[0].content.parts[0].text.trim().replace(/\*/g, '');
+
+            if (data.error) {
+                console.error("Gemini API Error:", data.error.message);
+                if (data.error.message.includes('API key not valid')) {
+                    showNotification("API Key Gemini Tidak Valid!", "error");
+                }
+                return null;
+            }
+
+            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
+                return data.candidates[0].content.parts[0].text.trim().replace(/\*/g, '').replace(/"/g, '');
             }
             return null;
         } catch (error) {
-            console.error("AI Error:", error);
+            console.error("Fetch Error:", error);
             return null;
         }
     }
@@ -783,19 +823,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add Dynamic Preloader Listener for main SKP Form (once after load)
         if (jabatanInputs.selector) {
-            jabatanInputs.selector.addEventListener('change', () => {
-                const selectedOpt = jabatanInputs.selector.options[jabatanInputs.selector.selectedIndex];
+            jabatanInputs.selector.addEventListener('change', function () {
+                const selectedOpt = this.options[this.selectedIndex];
+                const uraian = selectedOpt ? (selectedOpt.dataset.uraian || "") : "";
+
                 if (inputs && inputs.uraianSingkat) {
-                    const uraian = selectedOpt && selectedOpt.dataset ? (selectedOpt.dataset.uraian || "") : "";
                     inputs.uraianSingkat.value = uraian;
 
-                    if (uraian) {
+                    if (uraian && uraian.trim() !== "") {
                         inputs.uraianSingkat.placeholder = "Uraian tugas berhasil dimuat.";
-                        // Add a small animation effect to highlight the change
+                        // Visual cues
+                        inputs.uraianSingkat.style.borderColor = "var(--success-color)";
                         inputs.uraianSingkat.style.backgroundColor = "#f0fdf4";
                         setTimeout(() => {
+                            inputs.uraianSingkat.style.borderColor = "#ddd";
                             inputs.uraianSingkat.style.backgroundColor = "#f8fafc";
-                        }, 1000);
+                        }, 800);
                     } else {
                         inputs.uraianSingkat.placeholder = "Silakan ketik uraian tugas singkat...";
                     }
