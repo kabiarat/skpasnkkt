@@ -646,26 +646,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const apiKey = geminiConfig.getStoredKey();
         if (!apiKey) return null;
 
-        // Use the manual edit from "Uraian Tugas Singkat" box in the form
         const uraianContext = inputs.uraianSingkat ? inputs.uraianSingkat.value : "";
 
-        // Define prompt based on whether we are context-building or interlinking
+        // NEW: Advanced Prompt for Full SKP Item Generation (JSON)
         let prompt = "";
         if (atasanRhk) {
-            prompt = `Tuliskan SATU KALIMAT Rencana Hasil Kerja (RHK) BAWAHAN untuk pegawai:
+            prompt = `Tugas Anda adalah sebagai pakar Analis SDM dan perumus SKP (Sasaran Kinerja Pegawai) berbasis Permenpan-RB.
+            
+            BUATKAN detail SKP untuk pegawai berikut:
             - JABATAN: "${jabatan}"
             - BIDANG: "${bidang}"
-            - KONTEKS TUGAS: "${uraianContext}"
+            - KONTEKS TUGAS (ANJAB): "${uraianContext}"
+            - RHK ATASAN: "${atasanRhk}"
             
-            RHK ini HARUS mendongkrak/mendukung RHK ATASAN berikut: "${atasanRhk}". 
-            
-            SYARAT: 
-            1. Gunakan bahasa birokrasi ASN (Terlaksananya/Tersusunnya/Terkelolanya).
-            2. Harus linier dan logis.
-            3. HANYA kalimat RHK saja.`;
+            SYARAT UTAMA:
+            1. DILARANG menggunakan kata-kata umum/generic seperti "ATK", "Sarana Prasarana", "Gaji", "Tunjangan" kecuali benar-benar relevan dengan Jabatan di atas.
+            2. Indikator Kinerja Individu HARUS sangat spesifik mencerminkan Jabatan tersebut (contoh: kelaikan mesin, akurasi data sistem, kepuasan pasien, dsb).
+            3. Gunakan bahasa birokrasi ASN yang profesional (Terlaksananya, Tersusunnya, dsb).
+            4. Hasil harus dalam format JSON murni tanpa markdown, tanpa pengantar.
+
+            FORMAT JSON:
+            {
+                "rhk": "Kalimat RHK Bawahan",
+                "aspek": [
+                    {"jenis": "Kualitas", "indikator": "Indikator Kinerja Individu spesifik", "target": "100%"},
+                    {"jenis": "Kuantitas", "indikator": "Jumlah hasil kerja spesifik", "target": "12 Laporan"},
+                    {"jenis": "Waktu", "indikator": "Waktu penyelesaian spesifik", "target": "12 Bulan"}
+                ],
+                "sub_periods": [
+                    {"rencana": "Rencana Aksi Triwulan 1", "target": "Target T1", "bukti": "Bukti T1"},
+                    {"rencana": "Rencana Aksi Triwulan 2", "target": "Target T2", "bukti": "Bukti T2"},
+                    {"rencana": "Rencana Aksi Triwulan 3", "target": "Target T3", "bukti": "Bukti T3"},
+                    {"rencana": "Rencana Aksi Triwulan 4", "target": "Target T4", "bukti": "Bukti T4"},
+                    {"rencana": "Capaian Akhir Tahun", "target": "Target Final", "bukti": "Bukti Final"}
+                ]
+            }`;
         } else {
-            prompt = `Tuliskan SATU KALIMAT RHK Atasan/Utama yang cocok untuk Jabatan: "${jabatan}" di Bidang: "${bidang}" dengan Uraian Tugas: "${uraianContext}". 
-            Gunakan awalan kata benda hasil (contoh: Meningkatnya, Terwujudnya). HANYA kalimat saja.`;
+            prompt = `Berikan satu kalimat RHK UTAMA/ATASAN (Meningkatnya/Terwujudnya) yang paling profesional untuk Jabatan: "${jabatan}" di Bidang: "${bidang}". 
+            Konteks Tugas: "${uraianContext}". 
+            Berikan hanya teks kalimat saja.`;
         }
 
         try {
@@ -681,14 +700,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.error) {
                 console.error("Gemini API Error:", data.error.message);
-                if (data.error.message.includes('API key not valid')) {
-                    showNotification("API Key Gemini Tidak Valid!", "error");
-                }
                 return null;
             }
 
             if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
-                return data.candidates[0].content.parts[0].text.trim().replace(/\*/g, '').replace(/"/g, '');
+                let text = data.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '');
+                if (atasanRhk) {
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error("JSON Parse Error on AI output:", e);
+                        // Fallback: If JSON fails, treat it as plain text RHK
+                        return { rhk: text.substring(0, 200) };
+                    }
+                }
+                return text.replace(/"/g, '');
             }
             return null;
         } catch (error) {
@@ -738,25 +764,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const apiKey = geminiConfig.getStoredKey();
-            if (apiKey) {
-                syncRhkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI Sedang Berpikir...';
+            if (apiKey && apiKey !== "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k") {
+                showNotification('Menghubungkan ke Gemini AI...', 'info');
+                syncRhkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses AI...';
                 syncRhkBtn.disabled = true;
 
                 const aiResult = await callGeminiAI(jabatanVal, bidangVal, atasanVal);
 
                 if (aiResult) {
-                    inputs.rhkBawahan.value = aiResult;
-                    showNotification('Gemini AI berhasil merumuskan RHK Unik untuk Anda!', 'success');
+                    if (typeof aiResult === 'object') {
+                        inputs.rhkBawahan.value = aiResult.rhk;
+                        // Store the full dynamic data for later table generation
+                        inputs.rhkBawahan.dataset.dynamicData = JSON.stringify(aiResult);
+                        showNotification('RHK & Indikator berhasil dirumuskan oleh AI!', 'success');
+                    } else {
+                        inputs.rhkBawahan.value = aiResult;
+                        showNotification('RHK berhasil dirumuskan!', 'success');
+                    }
                 } else {
+                    showNotification('AI Gagal merespons. Menggunakan rumusan standar.', 'info');
                     inputs.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
-                    showNotification('Koneksi AI Gagal. Menggunakan rumusan standar.', 'error');
                 }
-
                 syncRhkBtn.innerHTML = '<i class="fas fa-magic"></i> 💡 Buat RHK Saya Berdasarkan Atasan';
                 syncRhkBtn.disabled = false;
             } else {
+                // Fallback standard if no valid custom key
                 inputs.rhkBawahan.value = formulateBawahanRhk(atasanVal, bidangVal);
-                showNotification('Kalimat RHK dirumuskan secara otomatis (Mode Standar).', 'success');
+                showNotification('Rumusan standar diterapkan (API Key belum terpasang).', 'info');
             }
         });
     }
@@ -1048,7 +1082,8 @@ document.addEventListener('DOMContentLoaded', () => {
             bawahan: userRhkBawahan,
             indikator: userIndikatorAtasan,
             levelAtasan: userLevelAtasan,
-            bidang: inputs.bidang.value // Store bidang per item
+            bidang: inputs.bidang.value,
+            dynamicData: inputs.rhkBawahan.dataset.dynamicData ? JSON.parse(inputs.rhkBawahan.dataset.dynamicData) : null
         });
 
         // Update Title & Print Header
@@ -1394,7 +1429,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     // ENSURE Atasan RHK is strictly what user provided in the list
                     const finalAtasanRhk = item.atasan || templateData.atasan.rhk;
 
-                    if (templateData.bawahan.sub_periods && templateData.bawahan.sub_periods[index]) {
+                    // --- DYNAMIC DATA PRIORITY ---
+                    if (item.dynamicData) {
+                        try {
+                            const dyn = typeof item.dynamicData === 'string' ? JSON.parse(item.dynamicData) : item.dynamicData;
+                            if (dyn.rhk) bawahan.rhk = dyn.rhk;
+                            if (dyn.aspek) bawahan.aspek = dyn.aspek;
+                            if (dyn.sub_periods && dyn.sub_periods[index]) {
+                                const sub = dyn.sub_periods[index];
+                                bawahan.rencana_aksi = sub.rencana;
+                                bawahan.target_rencana = sub.target;
+                                bawahan.bukti_dukung = sub.bukti;
+                            }
+                        } catch (e) { console.error("Dynamic Data Parse Err:", e); }
+                    } else if (templateData.bawahan.sub_periods && templateData.bawahan.sub_periods[index]) {
                         const sub = templateData.bawahan.sub_periods[index];
                         bawahan.rencana_aksi = sub.rencana;
                         bawahan.target_rencana = sub.target;
@@ -1409,7 +1457,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             rhk: finalAtasanRhk,
                             indikator: item.indikator || templateData.atasan.indikator
                         },
-                        bawahan: bawahan
+                        bawahan: {
+                            ...bawahan,
+                            rhk: item.bawahan || bawahan.rhk // Final user override if typed
+                        }
                     };
 
                     // Render
