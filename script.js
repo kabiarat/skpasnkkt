@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const geminiConfig = {
         keyInput: document.getElementById('geminiKey'),
         saveBtn: document.getElementById('saveAiKeyBtn'),
-        getStoredKey: () => localStorage.getItem('gemini_api_key') || "AIzaSyCCD2tXzPWZ3F5hbVpFrfRktORH0J6lE4k",
+        getStoredKey: () => localStorage.getItem('gemini_api_key') || "",
 
         // New: Load from Supabase to sync across devices
         syncFromCloud: async function () {
